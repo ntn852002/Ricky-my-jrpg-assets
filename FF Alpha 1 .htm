@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JRPG Pixel Art - Enhanced</title>
+    <script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        /* === MODIFIED === General Body and Layout for Mobile */
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'VT323', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            font-size: 18px;
+            padding-top: 20px; /* Add some space at the top */
+        }
+
+        /* === MODIFIED === Responsive Game Container */
+        #game-container {
+            position: relative;
+            border: 2px solid #fff;
+            box-shadow: 0 0 20px #fff;
+            /* Use aspect-ratio to maintain shape while resizing */
+            width: 95%;
+            max-width: 800px; /* Set a max-width for larger screens */
+            aspect-ratio: 4 / 3;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background-color: #111;
+            image-rendering: pixelated;
+            width: 100%;
+            height: 100%;
+            cursor: default; /* Default cursor for canvas */
+        }
+        
+        canvas.targeting {
+            cursor: pointer;
+        }
+
+
+        .ui-panel {
+            position: absolute;
+            background-color: rgba(0, 0, 50, 0.8);
+            border: 2px solid #aef;
+            color: #fff;
+            padding: 10px;
+            box-sizing: border-box;
+            display: none;
+            user-select: none;
+        }
+
+        #info-panel {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 450px;
+            padding: 8px 15px;
+            font-size: 18px;
+            text-align: center;
+            z-index: 15;
+        }
+
+        #message-box { 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 120px;
+            font-size: 18px; 
+            line-height: 1.4; 
+            word-wrap: break-word; 
+            white-space: pre-wrap;
+            z-index: 10;
+            cursor: pointer;
+        }
+        #next-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            display: none;
+            animation: bounce 1s infinite;
+            font-size: 24px;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        #battle-menu, #magic-menu { 
+            bottom: 0; 
+            right: 0; 
+            width: 160px; 
+            height: 120px;
+            z-index: 5;
+            overflow-y: auto;
+        }
+        .battle-menu-list ul { list-style: none; padding: 0; margin: 0; }
+        .battle-menu-list li { padding: 6px; cursor: pointer; font-size: 18px; }
+        .battle-menu-list li.selected { background-color: #fff; color: #000; }
+        .battle-menu-list li:before { content: '▶ '; opacity: 0; }
+        .battle-menu-list li.selected:before { opacity: 1; }
+        
+        #player-stats { top: 10px; left: 10px; width: 180px; padding: 8px; font-size: 16px; line-height: 1.2; }
+        #enemy-stats { top: 10px; right: 10px; width: 220px; padding: 8px; font-size: 14px; line-height: 1.2; max-height: 120px; overflow-y: auto; }
+        
+        .hp-bar-container { width: 100%; height: 10px; background-color: #555; border: 1px solid #fff; margin-top: 5px; margin-bottom: 8px; }
+        .hp-bar { height: 100%; background-color: #0f0; width: 100%; }
+        .mp-bar { height: 100%; background-color: #00f; width: 100%; }
+        
+        #game-over-screen { top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); justify-content: center; align-items: center; font-size: 40px; text-align: center; }
+
+        #target-selector {
+            position: absolute;
+            display: none;
+            width: 24px;
+            height: 24px;
+            color: red;
+            font-size: 32px;
+            animation: bounce 1s infinite;
+            z-index: 20;
+            text-shadow: 0 0 5px #fff;
+        }
+        
+        /* Modals */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background-color: #000032; padding: 30px; border: 2px solid #aef;
+            border-radius: 10px; width: 90%; max-width: 700px;
+        }
+        .modal-content h2 { margin-top: 0; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; }
+        .input-group input[type="text"], .input-group input[type="number"], .input-group input[type="file"], .input-group input[type="color"] {
+            width: 100%; padding: 8px; background-color: #112; border: 1px solid #aef;
+            color: #fff; font-family: 'VT323', monospace; font-size: 16px; box-sizing: border-box;
+        }
+        .input-group input[type="color"] { padding: 4px; height: 40px; }
+        .input-group-divider {
+            text-align: center;
+            margin: 10px 0;
+            font-style: italic;
+        }
+
+
+        .modal-buttons { text-align: right; margin-top: 20px; }
+        .modal-btn {
+            padding: 8px 16px; background-color: #aef; color: #000; border: none;
+            cursor: pointer; font-family: 'VT323', monospace; font-size: 18px; margin-left: 10px;
+        }
+        .modal-btn.primary { background-color: #5f5; }
+        .modal-btn.danger { background-color: #f55; }
+
+        .game-menu-buttons {
+            position: fixed;
+            top: 25px;
+            right: 15px;
+            z-index: 101; 
+            display: flex;
+            gap: 10px;
+        }
+        .game-menu-buttons button {
+             padding: 8px 12px;
+             background-color: #aef;
+             color: #000;
+             border: 2px solid #000;
+             cursor: pointer;
+             font-family: 'VT323', monospace;
+             font-size: 24px;
+             line-height: 1;
+        }
+
+        .modal-body { display: flex; gap: 20px; min-height: 300px; }
+        .list-panel { width: 35%; border-right: 1px solid #aef; padding-right: 20px; }
+        .details-panel { width: 65%; }
+        .item-list { list-style: none; padding: 0; margin: 0; max-height: 280px; overflow-y: auto; }
+        .item-list li { padding: 8px; cursor: pointer; border-bottom: 1px dashed #556; }
+        .item-list li:hover, .item-list li.selected { background-color: #114; }
+        .item-list .add-item-btn { color: #5f5; font-weight: bold; }
+        .detail-view img { background: #000; border: 1px solid #fff; width: 64px; height: 64px; }
+
+        #d-pad-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: 8px;
+            user-select: none;
+        }
+        .d-pad-btn {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(174, 239, 255, 0.5);
+            border: 2px solid #aef;
+            color: #fff;
+            font-size: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .d-pad-btn:active {
+            background-color: rgba(174, 239, 255, 0.8);
+        }
+        #d-pad-up { grid-area: up; }
+        #d-pad-down { grid-area: down; }
+        #d-pad-left { grid-area: left; }
+        #d-pad-right { grid-area: right; }
+        
+        #settings-modal .settings-menu-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        #settings-modal .settings-menu-grid button {
+            width: 100%;
+            padding: 15px;
+            font-size: 20px;
+        }
+        
+        #stats-modal-content {
+            font-size: 20px;
+            line-height: 1.6;
+        }
+        #stats-modal-content h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="info-panel" class="ui-panel"></div>
+        <div id="target-selector">▼</div> 
+        <div id="message-box" class="ui-panel">
+             <span id="message-text"></span>
+             <span id="next-indicator">▶</span>
+        </div>
+        <div id="battle-menu" class="ui-panel battle-menu-list"><ul>
+            <li data-action="attack" data-description="Tấn công vật lý một kẻ địch.">Tấn công</li>
+            <li data-action="magic" data-description="Sử dụng phép thuật (cần MP).">Phép thuật</li>
+            <li data-action="flee" data-description="Cố gắng bỏ chạy khỏi trận đấu.">Bỏ chạy</li>
+        </ul></div>
+        <div id="magic-menu" class="ui-panel battle-menu-list"><ul id="magic-menu-list">
+             </ul></div>
+        <div id="player-stats" class="ui-panel"></div>
+        <div id="enemy-stats" class="ui-panel"></div>
+        <div id="game-over-screen" class="ui-panel">TRÒ CHƠI KẾT THÚC</div>
+    </div>
+    
+    <div id="d-pad-container">
+        <button id="d-pad-up" class="d-pad-btn">▲</button>
+        <button id="d-pad-left" class="d-pad-btn">◀</button>
+        <button id="d-pad-right" class="d-pad-btn">▶</button>
+        <button id="d-pad-down" class="d-pad-btn">▼</button>
+    </div>
+
+    <div class="game-menu-buttons">
+        <button id="stats-menu-btn">Menu</button>
+        <button id="settings-btn">⚙️</button>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h2>Cài Đặt & Quản Lý</h2>
+            <div class="settings-menu-grid">
+                <button id="modal-customize-btn" class="modal-btn">Tùy Chỉnh Nhân Vật</button>
+                <button id="modal-manage-monsters-btn" class="modal-btn">Quản Lý Quái Vật</button>
+                <button id="modal-manage-spells-btn" class="modal-btn">Quản Lý Phép Thuật</button>
+                <button id="modal-reset-game-btn" class="modal-btn danger">Reset Toàn Bộ Game</button>
+            </div>
+            <div class="modal-buttons">
+                <button id="close-settings-modal-btn" class="modal-btn">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="stats-modal" class="modal">
+        <div class="modal-content">
+            <div id="stats-modal-content">
+                </div>
+            <div class="modal-buttons">
+                <button id="close-stats-modal-btn" class="modal-btn">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="customize-modal" class="modal">
+        <div class="modal-content">
+            <h2>Tùy Chỉnh Nhân Vật Chính</h2>
+            <p>Tải lên ảnh 16x16 (PNG/GIF) hoặc dán URL.</p>
+            <div class="input-group">
+                <label for="player-file">Tải file lên:</label>
+                <input type="file" id="player-file" accept="image/png,image/gif">
+            </div>
+             <div class="input-group-divider">hoặc</div>
+            <div class="input-group">
+                <label for="player-url">Dán URL ảnh:</label>
+                <input type="text" id="player-url" placeholder="https://...">
+            </div>
+            <div class="modal-buttons">
+                <button id="reset-player-sprite-btn" class="modal-btn danger">Reset</button>
+                <button id="save-player-sprite-btn" class="modal-btn primary">Lưu & Tải Lại</button>
+                <button id="close-player-modal-btn" class="modal-btn">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="monster-modal" class="modal">
+        <div class="modal-content">
+            <h2>Quản Lý Quái Vật</h2>
+            <div class="modal-body">
+                <div class="list-panel">
+                     <ul id="monster-list" class="item-list"></ul>
+                </div>
+                <div id="monster-details-panel" class="details-panel">
+                </div>
+            </div>
+             <div class="modal-buttons">
+                <button id="close-monster-modal-btn" class="modal-btn">Đóng</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="spell-modal" class="modal">
+        <div class="modal-content">
+            <h2>Quản Lý Phép Thuật</h2>
+            <div class="modal-body">
+                <div class="list-panel">
+                     <ul id="spell-list" class="item-list"></ul>
+                </div>
+                <div id="spell-details-panel" class="details-panel">
+                </div>
+            </div>
+             <div class="modal-buttons">
+                <button id="close-spell-modal-btn" class="modal-btn">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // ===================================
+        // KHỞI TẠO GAME
+        // ===================================
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const TILE_SIZE = 16;
+        const MAP_WIDTH_TILES = 40;
+        const MAP_HEIGHT_TILES = 30;
+        canvas.width = TILE_SIZE * MAP_WIDTH_TILES;
+        canvas.height = TILE_SIZE * MAP_HEIGHT_TILES;
+        
+        const ui = {
+            messageBox: document.getElementById('message-box'),
+            messageText: document.getElementById('message-text'),
+            battleMenu: document.getElementById('battle-menu'),
+            magicMenu: document.getElementById('magic-menu'),
+            magicMenuList: document.getElementById('magic-menu-list'),
+            playerStatsPanel: document.getElementById('player-stats'),
+            enemyStatsPanel: document.getElementById('enemy-stats'),
+            gameOverScreen: document.getElementById('game-over-screen'),
+            nextIndicator: document.getElementById('next-indicator'),
+            targetSelector: document.getElementById('target-selector'),
+            infoPanel: document.getElementById('info-panel'),
+            settingsModal: document.getElementById('settings-modal'),
+            statsModal: document.getElementById('stats-modal'),
+            statsModalContent: document.getElementById('stats-modal-content'),
+            customizeModal: document.getElementById('customize-modal'),
+            monsterModal: document.getElementById('monster-modal'),
+            spellModal: document.getElementById('spell-modal'),
+        };
+        let gameState = 'world', battleState = '', gameStarted = false, battleBackgroundColor = '#333';
+        let currentAnimation = null;
+
+        function updateInfoPanel(text) {
+            if (text && gameState === 'battle') {
+                ui.infoPanel.innerHTML = text;
+                ui.infoPanel.style.display = 'block';
+            } else {
+                ui.infoPanel.style.display = 'none';
+            }
+        }
+
+        // ===================================
+        // QUẢN LÝ DỮ LIỆU & HÌNH ẢNH
+        // ===================================
+        const playerDataManager = {
+            stats: {},
+            getInitialStats() {
+                return {
+                    level: 1,
+                    atk: 15,
+                    maxHp: 52,
+                    maxMp: 23,
+                    battlesWon: 0,
+                    battlesToNextLevel: 3,
+                };
+            },
+            load() {
+                const savedData = localStorage.getItem('jrpg_playerData');
+                if (savedData) {
+                    this.stats = JSON.parse(savedData);
+                    if (this.stats.maxHp === undefined) this.stats.maxHp = this.stats.level * 2 + 50;
+                    if (this.stats.maxMp === undefined) this.stats.maxMp = this.stats.level * 3 + 20;
+                } else {
+                    this.stats = this.getInitialStats();
+                }
+            },
+            save() {
+                localStorage.setItem('jrpg_playerData', JSON.stringify(this.stats));
+            },
+            levelUp() {
+                this.stats.level++;
+                this.stats.atk += 5;
+                this.stats.maxHp = this.stats.level * 2 + 50;
+                this.stats.maxMp = this.stats.level * 3 + 20;
+                this.stats.battlesWon = 0;
+                this.stats.battlesToNextLevel = this.stats.level * 3;
+                this.save();
+            }
+        };
+
+        const monsterManager = {
+            monsters: [],
+            defaultMonsters: [
+                { 
+                    id: 'Slime', name: 'Slime', hp: 30, atk: 5, spriteUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAGFJREFUOE9jZKAQMOLR/xmgyYAPyT5g+L9hZqieOQxYgNylHkC2AIb/gcy/z0DQD0yA3HWBHED2U/g/MHyB+39hMKMNAkCVHJAAGQc0H4BsgA6TAmQcMHEBADlqP2WULmS4AAAAAElFTkSuQmCC',
+                    specialSkill: { name: 'Phun Axit', damage: 10, chance: 0.2 }
+                },
+                { 
+                    id: 'Goblin', name: 'Goblin', hp: 50, atk: 8, spriteUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAIhJREFUOE9jZKAQMOLR/xkYGBgZGFlA/c8AASYnLMD//7+ZgYGBgRAVPDgAUQPkvwHy/39mMGLCBsgBkv+D+P8/M/x/YGBgZIAKIP8H8f//Z2BgZAZkDNhD/P8/M/x/YGBgBBnANCGgAZKAGM2A/AcA3YAGCBj/BwJjCMgAATAGiLhBAP3fGgDBSm7443EJewAAAABJRU5ErkJggg==',
+                    specialSkill: { name: 'Ném Đá', damage: 15, chance: 0.3 }
+                }
+            ],
+            load() {
+                const savedMonsters = localStorage.getItem('jrpg_monsters');
+                this.monsters = savedMonsters ? JSON.parse(savedMonsters) : [...this.defaultMonsters];
+                this.monsters.forEach(m => {
+                    if (!m.id) m.id = m.name;
+                    if (!m.specialSkill) m.specialSkill = { name: "Tuyệt Kỹ", damage: m.atk * 2, chance: 0.2 };
+                });
+            },
+            save() {
+                localStorage.setItem('jrpg_monsters', JSON.stringify(this.monsters));
+            },
+            add(monsterData) {
+                if (this.monsters.find(m => m.name === monsterData.name)) { alert('Lỗi: Tên quái vật đã tồn tại.'); return false; }
+                this.monsters.push(monsterData);
+                this.save();
+                return true;
+            },
+            update(originalName, newData) {
+                const monsterIndex = this.monsters.findIndex(m => m.name === originalName);
+                if (monsterIndex === -1) return false;
+                if (newData.name !== originalName && this.monsters.some(m => m.name === newData.name)) { alert('Lỗi: Tên quái vật mới đã tồn tại.'); return false; }
+                this.monsters[monsterIndex] = { ...this.monsters[monsterIndex], ...newData, id: newData.name };
+                this.save();
+                return true;
+            },
+            delete(monsterName) {
+                this.monsters = this.monsters.filter(m => m.name !== monsterName);
+                this.save();
+            }
+        };
+
+        const spellManager = {
+            spells: [],
+            defaultSpells: [
+                { id: 'ice', name: 'Băng', mpCost: 2, damage: 10, effectColor: '#00ffff', flashes: 3, spriteUrl: null, spriteFlashes: 0 },
+                { id: 'fire', name: 'Lửa', mpCost: 3, damage: 15, effectColor: '#ff0000', flashes: 2, spriteUrl: null, spriteFlashes: 0 }
+            ],
+            load() {
+                const savedSpells = localStorage.getItem('jrpg_spells');
+                this.spells = savedSpells ? JSON.parse(savedSpells) : [...this.defaultSpells];
+                this.spells.forEach(s => {
+                    if (!s.id) s.id = s.name;
+                });
+            },
+            save() {
+                localStorage.setItem('jrpg_spells', JSON.stringify(this.spells));
+            },
+            add(spellData) {
+                if (this.spells.find(s => s.name === spellData.name)) { alert('Lỗi: Tên phép thuật đã tồn tại.'); return false; }
+                this.spells.push(spellData);
+                this.save();
+                return true;
+            },
+            update(originalId, newData) {
+                const spellIndex = this.spells.findIndex(s => s.id === originalId);
+                if (spellIndex === -1) return false;
+                if (newData.name !== this.spells[spellIndex].name && this.spells.some(s => s.name === newData.name)) { alert('Lỗi: Tên phép thuật mới đã tồn tại.'); return false; }
+                this.spells[spellIndex] = { ...this.spells[spellIndex], ...newData, id: newData.name };
+                this.save();
+                return true;
+            },
+            delete(spellId) {
+                this.spells = this.spells.filter(s => s.id !== spellId);
+                this.save();
+            }
+        };
+        
+        const spriteManager = {
+            spriteData: {},
+            defaultPlayerDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAHBJREFUOE9jZKAQMOLR/xedgYGBgVGkGwYMQ4FVDwZOkDKEGgA2QoHVRwZsgJyBCgAbIRR6+v9/moGBAZEMoDYkAsZzQARyBCwAssEzhGoA2YwBmwFkMwbMBoB9YvD/4seA/0Sg/iyAGAMABzYnXD9cwrwAAAAASUVORK5CYII=',
+
+            loadAll(callback) {
+                const playerAssetKey = 'player';
+                const assetsToLoad = {
+                    [playerAssetKey]: localStorage.getItem('custom_sprite_player') || this.defaultPlayerDataUrl,
+                };
+                monsterManager.monsters.forEach(m => { assetsToLoad[m.id] = m.spriteUrl; });
+                spellManager.spells.forEach(s => { if(s.spriteUrl) assetsToLoad[s.id] = s.spriteUrl; });
+
+                const assetKeys = Object.keys(assetsToLoad);
+                let assetsLeft = assetKeys.length;
+                if (assetsLeft === 0) { if(callback) callback(); return; }
+
+                const onAssetLoaded = () => { if (--assetsLeft === 0) if(callback) callback(); };
+
+                assetKeys.forEach(key => {
+                    const url = assetsToLoad[key];
+                    if (!url) { onAssetLoaded(); return; } 
+                    if (url.startsWith('data:image/gif')) {
+                        const offscreenCanvas = document.createElement('canvas');
+                        this.spriteData[key] = { type: 'gif', asset: offscreenCanvas, loaded: false };
+                        const sprite = this.spriteData[key];
+                        gifler(url).frames(offscreenCanvas, (ctx, frame) => {
+                            if (!sprite.loaded) {
+                                offscreenCanvas.width = frame.width;
+                                offscreenCanvas.height = frame.height;
+                                sprite.loaded = true;
+                                onAssetLoaded();
+                            }
+                            ctx.clearRect(0, 0, frame.width, frame.height);
+                            ctx.drawImage(frame.buffer, frame.x, frame.y);
+                        });
+                    } else {
+                        this.spriteData[key] = { type: 'static', asset: new Image(), loaded: false };
+                        const sprite = this.spriteData[key];
+                        sprite.asset.crossOrigin = "Anonymous"; // Fix for CORS issues with external URLs
+                        sprite.asset.onload = () => { sprite.loaded = true; onAssetLoaded(); };
+                        sprite.asset.onerror = () => { 
+                            console.error(`Không thể tải hình ảnh: ${url}`);
+                            sprite.loaded = false; 
+                            onAssetLoaded(); 
+                        };
+                        sprite.asset.src = url;
+                    }
+                });
+            },
+            
+            draw(key, x, y, width, height) {
+                const sprite = this.spriteData[key];
+                if (sprite && sprite.loaded) {
+                    ctx.drawImage(sprite.asset, x, y, width, height);
+                } else {
+                    ctx.fillStyle = '#FF00FF'; // Magenta for missing sprite
+                    ctx.fillRect(x, y, width, height);
+                }
+            }
+        };
+        
+        // ===================================
+        // MODAL LOGIC
+        // ===================================
+
+        // === NEW === Helper function to process URL or File input for sprites
+        function handleSpriteInput(urlInputId, fileInputId, callback) {
+            const url = document.getElementById(urlInputId).value.trim();
+            const file = document.getElementById(fileInputId).files[0];
+
+            if (url) {
+                callback(url); // Immediately use the URL
+            } else if (file) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    callback(reader.result); // Use the Base64 data from the file
+                };
+                reader.readAsDataURL(file);
+            } else {
+                callback(null); // No input was provided
+            }
+        }
+        
+        function setupModalListeners() {
+            // Settings Modal
+            document.getElementById('settings-btn').addEventListener('click', () => { ui.settingsModal.style.display = 'flex'; });
+            document.getElementById('close-settings-modal-btn').addEventListener('click', () => { ui.settingsModal.style.display = 'none'; });
+
+            // Stats Modal
+            document.getElementById('stats-menu-btn').addEventListener('click', () => {
+                populateStatsModal();
+                ui.statsModal.style.display = 'flex';
+            });
+            document.getElementById('close-stats-modal-btn').addEventListener('click', () => { ui.statsModal.style.display = 'none'; });
+
+            // Re-route old button logic
+            document.getElementById('modal-customize-btn').addEventListener('click', () => { ui.customizeModal.style.display = 'flex'; });
+            document.getElementById('modal-manage-monsters-btn').addEventListener('click', () => { monsterModal.renderList(); ui.monsterModal.style.display = 'flex'; });
+            document.getElementById('modal-manage-spells-btn').addEventListener('click', () => { spellModal.renderList(); ui.spellModal.style.display = 'flex'; });
+            document.getElementById('modal-reset-game-btn').addEventListener('click', () => {
+                if (confirm('Bạn có chắc muốn reset toàn bộ dữ liệu game (Nhân vật, Quái vật, Phép thuật)? Hành động này không thể hoàn tác.')) {
+                    localStorage.removeItem('jrpg_playerData');
+                    localStorage.removeItem('jrpg_monsters');
+                    localStorage.removeItem('jrpg_spells');
+                    localStorage.removeItem('custom_sprite_player');
+                    alert('Đã reset game! Game sẽ được tải lại.');
+                    location.reload();
+                }
+            });
+
+            // Player Customization Modal
+            document.getElementById('close-player-modal-btn').addEventListener('click', () => { ui.customizeModal.style.display = 'none'; });
+            document.getElementById('reset-player-sprite-btn').addEventListener('click', () => { 
+                localStorage.removeItem('custom_sprite_player'); 
+                alert('Đã reset. Game sẽ tải lại.'); 
+                location.reload(); 
+            });
+            
+            // === MODIFIED === Save Player Sprite Logic
+            document.getElementById('save-player-sprite-btn').addEventListener('click', () => {
+                handleSpriteInput('player-url', 'player-file', (spriteData) => {
+                    if (spriteData) {
+                        localStorage.setItem('custom_sprite_player', spriteData);
+                        alert('Đã lưu! Game sẽ tải lại.');
+                        location.reload();
+                    } else {
+                         alert('Vui lòng chọn một file hoặc dán vào một URL.');
+                    }
+                });
+            });
+
+            // Monster & Spell Modals
+            document.getElementById('close-monster-modal-btn').addEventListener('click', () => { ui.monsterModal.style.display = 'none'; });
+            document.getElementById('close-spell-modal-btn').addEventListener('click', () => { ui.spellModal.style.display = 'none'; });
+        }
+        
+        function populateStatsModal() {
+            const stats = playerDataManager.stats;
+            const currentHp = (gameState === 'battle' && playerUnit) ? playerUnit.hp : stats.maxHp;
+            const currentMp = (gameState === 'battle' && playerUnit) ? playerUnit.mp : stats.maxMp;
+
+            ui.statsModalContent.innerHTML = `
+                <h2>Trạng Thái Nhân Vật</h2>
+                <p><strong>Cấp Độ:</strong> ${stats.level}</p>
+                <p><strong>HP:</strong> ${currentHp} / ${stats.maxHp}</p>
+                <p><strong>MP:</strong> ${currentMp} / ${stats.maxMp}</p>
+                <p><strong>Sức Tấn Công (ATK):</strong> ${stats.atk}</p>
+                <hr>
+                <p><strong>Số trận đã thắng:</strong> ${stats.battlesWon}</p>
+                <p><strong>Cần thắng để lên cấp:</strong> ${stats.battlesToNextLevel - stats.battlesWon}</p>
+            `;
+        }
+
+
+        // MONSTERS
+        const monsterModal = {
+            listEl: document.getElementById('monster-list'),
+            detailsEl: document.getElementById('monster-details-panel'),
+            init() {},
+            renderList() {
+                this.listEl.innerHTML = '';
+                const addLi = document.createElement('li');
+                addLi.textContent = '[+] Thêm Quái Vật Mới'; addLi.className = 'add-item-btn';
+                addLi.onclick = () => { this.renderAddForm(); document.querySelectorAll('#monster-list li').forEach(el => el.classList.remove('selected')); addLi.classList.add('selected'); };
+                this.listEl.appendChild(addLi);
+                monsterManager.monsters.forEach(monster => {
+                    const li = document.createElement('li');
+                    li.textContent = monster.name;
+                    li.onclick = () => { this.renderDetails(monster); document.querySelectorAll('#monster-list li').forEach(el => el.classList.remove('selected')); li.classList.add('selected'); };
+                    this.listEl.appendChild(li);
+                });
+                this.renderAddForm(); addLi.classList.add('selected');
+            },
+            renderDetails(monster) {
+                this.detailsEl.innerHTML = `
+                    <h3>${monster.name}</h3><div class="detail-view"><img src="${monster.spriteUrl}" alt="${monster.name}"></div>
+                    <p>HP Gốc: ${monster.hp}</p>
+                    <p>ATK: ${monster.atk}</p>
+                    <h4>Tuyệt Kỹ</h4>
+                    <p>Tên: ${monster.specialSkill.name}</p>
+                    <p>Sát thương: ${monster.specialSkill.damage}</p>
+                    <p>Tỷ lệ: ${monster.specialSkill.chance * 100}%</p>
+                    <div class="modal-buttons">
+                        <button id="edit-monster-btn" class="modal-btn">Chỉnh Sửa</button>
+                        <button id="delete-monster-btn" class="modal-btn danger">Xóa Quái Vật</button>
+                    </div>`;
+                document.getElementById('edit-monster-btn').onclick = () => this.renderEditForm(monster);
+                document.getElementById('delete-monster-btn').onclick = () => { if (confirm(`Bạn có chắc muốn xóa ${monster.name}?`)) { monsterManager.delete(monster.name); alert('Đã xóa! Game sẽ tải lại.'); location.reload(); } }
+            },
+            // === MODIFIED === Monster Add Form
+            renderAddForm() {
+                this.detailsEl.innerHTML = `
+                    <h3>Thêm Quái Vật Mới</h3>
+                    <div class="input-group"><label for="new-monster-name">Tên:</label><input type="text" id="new-monster-name" required></div>
+                    <div class="input-group"><label for="new-monster-hp">HP:</label><input type="number" id="new-monster-hp" value="10" required></div>
+                    <div class="input-group"><label for="new-monster-atk">ATK:</label><input type="number" id="new-monster-atk" value="5" required></div>
+                    <div class="input-group"><label for="new-monster-file">Hình (16x16, PNG/GIF):</label><input type="file" id="new-monster-file" accept="image/png,image/gif"></div>
+                    <div class="input-group-divider">hoặc</div>
+                    <div class="input-group"><label for="new-monster-url">Dán URL ảnh:</label><input type="text" id="new-monster-url" placeholder="https://..."></div>
+                    <hr><h4>Tuyệt Kỹ</h4>
+                    <div class="input-group"><label for="new-skill-name">Tên tuyệt kỹ:</label><input type="text" id="new-skill-name" value="Cú Đấm Mạnh" required></div>
+                    <div class="input-group"><label for="new-skill-damage">Sát thương:</label><input type="number" id="new-skill-damage" value="10" required></div>
+                    <div class="input-group"><label for="new-skill-chance">Tỷ lệ (0.0 - 1.0):</label><input type="number" id="new-skill-chance" value="0.25" step="0.01" min="0" max="1" required></div>
+                    <div class="modal-buttons"><button id="save-new-monster-btn" class="modal-btn primary">Lưu</button></div>`;
+                
+                document.getElementById('save-new-monster-btn').onclick = () => {
+                    const name = document.getElementById('new-monster-name').value;
+                    const hp = parseInt(document.getElementById('new-monster-hp').value);
+                    const atk = parseInt(document.getElementById('new-monster-atk').value);
+                    const skillName = document.getElementById('new-skill-name').value;
+                    const skillDamage = parseInt(document.getElementById('new-skill-damage').value);
+                    const skillChance = parseFloat(document.getElementById('new-skill-chance').value);
+
+                    if (!name || !hp || !atk || !skillName || !skillDamage || isNaN(skillChance)) { alert('Vui lòng điền đủ thông tin quái vật và tuyệt kỹ.'); return; }
+                    
+                    handleSpriteInput('new-monster-url', 'new-monster-file', (spriteData) => {
+                        if (!spriteData) {
+                            alert('Vui lòng cung cấp hình ảnh cho quái vật (tải file hoặc dán URL).');
+                            return;
+                        }
+                        const newMonster = { id: name, name, hp, atk, spriteUrl: spriteData, specialSkill: { name: skillName, damage: skillDamage, chance: skillChance } };
+                        if(monsterManager.add(newMonster)) { 
+                            alert('Đã thêm! Game sẽ tải lại.'); 
+                            location.reload(); 
+                        } 
+                    });
+                }
+            },
+            // === MODIFIED === Monster Edit Form
+            renderEditForm(monster) {
+                 this.detailsEl.innerHTML = `
+                    <h3>Chỉnh sửa: ${monster.name}</h3>
+                    <div class="input-group"><label for="edit-monster-name">Tên:</label><input type="text" id="edit-monster-name" value="${monster.name}" required></div>
+                    <div class="input-group"><label for="edit-monster-hp">HP:</label><input type="number" id="edit-monster-hp" value="${monster.hp}" required></div>
+                    <div class="input-group"><label for="edit-monster-atk">ATK:</label><input type="number" id="edit-monster-atk" value="${monster.atk}" required></div>
+                    <div class="input-group">
+                        <label for="edit-monster-file">Hình mới (tùy chọn):</label>
+                        <input type="file" id="edit-monster-file" accept="image/png,image/gif">
+                        <p>Ảnh hiện tại: <img src="${monster.spriteUrl}" style="width:16px;height:16px;vertical-align:middle;"></p>
+                    </div>
+                    <div class="input-group-divider">hoặc</div>
+                     <div class="input-group"><label for="edit-monster-url">Dán URL ảnh mới:</label><input type="text" id="edit-monster-url" placeholder="Để trống nếu không muốn thay đổi ảnh"></div>
+                    <hr><h4>Tuyệt Kỹ</h4>
+                    <div class="input-group"><label for="edit-skill-name">Tên tuyệt kỹ:</label><input type="text" id="edit-skill-name" value="${monster.specialSkill.name}" required></div>
+                    <div class="input-group"><label for="edit-skill-damage">Sát thương:</label><input type="number" id="edit-skill-damage" value="${monster.specialSkill.damage}" required></div>
+                    <div class="input-group"><label for="edit-skill-chance">Tỷ lệ (0.0 - 1.0):</label><input type="number" id="edit-skill-chance" value="${monster.specialSkill.chance}" step="0.01" min="0" max="1" required></div>
+                    <div class="modal-buttons"><button id="cancel-edit-btn" class="modal-btn">Hủy</button><button id="save-edit-monster-btn" class="modal-btn primary">Lưu</button></div>`;
+                
+                document.getElementById('cancel-edit-btn').onclick = () => this.renderDetails(monster);
+                document.getElementById('save-edit-monster-btn').onclick = () => {
+                    const updatedData = {
+                        name: document.getElementById('edit-monster-name').value, 
+                        hp: parseInt(document.getElementById('edit-monster-hp').value), 
+                        atk: parseInt(document.getElementById('edit-monster-atk').value),
+                        specialSkill: { 
+                            name: document.getElementById('edit-skill-name').value, 
+                            damage: parseInt(document.getElementById('edit-skill-damage').value), 
+                            chance: parseFloat(document.getElementById('edit-skill-chance').value) 
+                        }
+                    };
+                    
+                    const performUpdate = (spriteData) => {
+                        if (spriteData) {
+                            updatedData.spriteUrl = spriteData;
+                        }
+                        if(monsterManager.update(monster.name, updatedData)) { 
+                            alert('Đã cập nhật! Game sẽ tải lại.'); 
+                            location.reload(); 
+                        }
+                    };
+                    
+                    handleSpriteInput('edit-monster-url', 'edit-monster-file', performUpdate);
+                };
+            }
+        };
+        
+        // SPELL MODAL LOGIC
+        const spellModal = {
+            listEl: document.getElementById('spell-list'),
+            detailsEl: document.getElementById('spell-details-panel'),
+            init() { },
+            renderList() {
+                this.listEl.innerHTML = '';
+                const addLi = document.createElement('li');
+                addLi.textContent = '[+] Thêm Phép Mới'; addLi.className = 'add-item-btn';
+                addLi.onclick = () => { this.renderAddForm(); document.querySelectorAll('#spell-list li').forEach(el => el.classList.remove('selected')); addLi.classList.add('selected'); };
+                this.listEl.appendChild(addLi);
+
+                spellManager.spells.forEach(spell => {
+                    const li = document.createElement('li');
+                    li.textContent = spell.name;
+                    li.onclick = () => { this.renderDetails(spell); document.querySelectorAll('#spell-list li').forEach(el => el.classList.remove('selected')); li.classList.add('selected'); };
+                    this.listEl.appendChild(li);
+                });
+                this.renderAddForm(); addLi.classList.add('selected');
+            },
+            renderDetails(spell) {
+                this.detailsEl.innerHTML = `
+                    <h3>${spell.name}</h3>
+                    ${spell.spriteUrl ? `<div class="detail-view"><img src="${spell.spriteUrl}" alt="${spell.name}"></div>` : '<p>(Không có hình ảnh hiệu ứng)</p>'}
+                    <p>MP Cost: ${spell.mpCost}</p>
+                    <p>Sát thương: ${spell.damage}</p>
+                    <h4>Hiệu Ứng</h4>
+                    <p>Màu chớp: <span style="background-color:${spell.effectColor}; padding: 0 10px;">&nbsp;</span> ${spell.effectColor}</p>
+                    <p>Số lần chớp màn hình: ${spell.flashes}</p>
+                    <p>Số lần chớp hình: ${spell.spriteFlashes || 0}</p>
+                    <div class="modal-buttons">
+                        <button id="edit-spell-btn" class="modal-btn">Chỉnh Sửa</button>
+                        <button id="delete-spell-btn" class="modal-btn danger">Xóa Phép</button>
+                    </div>`;
+                document.getElementById('edit-spell-btn').onclick = () => this.renderEditForm(spell);
+                document.getElementById('delete-spell-btn').onclick = () => { if (confirm(`Bạn có chắc muốn xóa ${spell.name}?`)) { spellManager.delete(spell.id); alert('Đã xóa! Game sẽ tải lại.'); location.reload(); } }
+            },
+            // === MODIFIED === Spell Add Form
+            renderAddForm() {
+                this.detailsEl.innerHTML = `
+                    <h3>Thêm Phép Mới</h3>
+                    <div class="input-group"><label>Tên:</label><input type="text" id="new-spell-name" required></div>
+                    <div class="input-group"><label>MP Cost:</label><input type="number" id="new-spell-mp" value="5" required></div>
+                    <div class="input-group"><label>Sát thương:</label><input type="number" id="new-spell-damage" value="20" required></div>
+                    <hr><h4>Hiệu Ứng</h4>
+                    <div class="input-group"><label>Màu chớp màn hình:</label><input type="color" id="new-spell-color" value="#ffff00"></div>
+                    <div class="input-group"><label>Số lần chớp màn hình:</label><input type="number" id="new-spell-flashes" value="3" min="0"></div>
+                    <div class="input-group"><label>Hình ảnh hiệu ứng (tùy chọn):</label><input type="file" id="new-spell-file" accept="image/png,image/gif"></div>
+                    <div class="input-group-divider">hoặc</div>
+                    <div class="input-group"><label>Dán URL ảnh hiệu ứng:</label><input type="text" id="new-spell-url" placeholder="https://..."></div>
+                    <div class="input-group"><label>Số lần chớp hình:</label><input type="number" id="new-spell-sprite-flashes" value="1" min="0"></div>
+                    <div class="modal-buttons"><button id="save-new-spell-btn" class="modal-btn primary">Lưu</button></div>`;
+                
+                document.getElementById('save-new-spell-btn').onclick = () => {
+                    const newSpellData = {
+                        id: document.getElementById('new-spell-name').value, 
+                        name: document.getElementById('new-spell-name').value,
+                        mpCost: parseInt(document.getElementById('new-spell-mp').value),
+                        damage: parseInt(document.getElementById('new-spell-damage').value),
+                        effectColor: document.getElementById('new-spell-color').value,
+                        flashes: parseInt(document.getElementById('new-spell-flashes').value),
+                        spriteFlashes: parseInt(document.getElementById('new-spell-sprite-flashes').value),
+                        spriteUrl: null
+                    };
+
+                    if (!newSpellData.name || isNaN(newSpellData.mpCost) || isNaN(newSpellData.damage)) { alert('Vui lòng điền đủ Tên, MP, và Sát thương.'); return; }
+                    
+                    handleSpriteInput('new-spell-url', 'new-spell-file', (spriteData) => {
+                        newSpellData.spriteUrl = spriteData; // Can be null if no sprite provided
+                        if(spellManager.add(newSpellData)) { 
+                            alert('Đã thêm phép! Game sẽ tải lại.'); 
+                            location.reload(); 
+                        }
+                    });
+                }
+            },
+            // === MODIFIED === Spell Edit Form
+            renderEditForm(spell) {
+                this.detailsEl.innerHTML = `
+                    <h3>Chỉnh sửa: ${spell.name}</h3>
+                    <div class="input-group"><label>Tên:</label><input type="text" id="edit-spell-name" value="${spell.name}" required></div>
+                    <div class="input-group"><label>MP Cost:</label><input type="number" id="edit-spell-mp" value="${spell.mpCost}" required></div>
+                    <div class="input-group"><label>Sát thương:</label><input type="number" id="edit-spell-damage" value="${spell.damage}" required></div>
+                    <hr><h4>Hiệu Ứng</h4>
+                    <div class="input-group"><label>Màu chớp màn hình:</label><input type="color" id="edit-spell-color" value="${spell.effectColor}"></div>
+                    <div class="input-group"><label>Số lần chớp màn hình:</label><input type="number" id="edit-spell-flashes" value="${spell.flashes}" min="0"></div>
+                    <div class="input-group">
+                        <label>Hình ảnh mới (tùy chọn):</label><input type="file" id="edit-spell-file" accept="image/png,image/gif">
+                        ${spell.spriteUrl ? `<p>Ảnh hiện tại: <img src="${spell.spriteUrl}" style="width:16px;height:16px;vertical-align:middle;"></p>` : ''}
+                    </div>
+                    <div class="input-group-divider">hoặc</div>
+                    <div class="input-group"><label>Dán URL ảnh mới:</label><input type="text" id="edit-spell-url" placeholder="Để trống nếu không thay đổi"></div>
+                    <div class="input-group"><label>Số lần chớp hình:</label><input type="number" id="edit-spell-sprite-flashes" value="${spell.spriteFlashes || 0}" min="0"></div>
+                    <div class="modal-buttons"><button id="cancel-edit-btn" class="modal-btn">Hủy</button><button id="save-edit-spell-btn" class="modal-btn primary">Lưu</button></div>`;
+                
+                document.getElementById('cancel-edit-btn').onclick = () => this.renderDetails(spell);
+                document.getElementById('save-edit-spell-btn').onclick = () => {
+                    const updatedData = {
+                        name: document.getElementById('edit-spell-name').value,
+                        mpCost: parseInt(document.getElementById('edit-spell-mp').value),
+                        damage: parseInt(document.getElementById('edit-spell-damage').value),
+                        effectColor: document.getElementById('edit-spell-color').value,
+                        flashes: parseInt(document.getElementById('edit-spell-flashes').value),
+                        spriteFlashes: parseInt(document.getElementById('edit-spell-sprite-flashes').value)
+                    };
+                    
+                    const performUpdate = (spriteData) => {
+                        if(spriteData !== null) { // Only update sprite if a new one is provided
+                           updatedData.spriteUrl = spriteData;
+                        }
+                        if(spellManager.update(spell.id, updatedData)) { 
+                            alert('Đã cập nhật! Game sẽ tải lại.'); 
+                            location.reload(); 
+                        }
+                    };
+
+                    handleSpriteInput('edit-spell-url', 'edit-spell-file', performUpdate);
+                };
+            }
+        };
+
+        // ===================================
+        // GAME LOGIC CORE
+        // ===================================
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        function setupDPadListeners() {
+            const dPadButtons = {
+                'd-pad-up': 'ArrowUp',
+                'd-pad-down': 'ArrowDown',
+                'd-pad-left': 'ArrowLeft',
+                'd-pad-right': 'ArrowRight',
+            };
+
+            for (const [buttonId, key] of Object.entries(dPadButtons)) {
+                const button = document.getElementById(buttonId);
+                button.addEventListener('mousedown', (e) => { e.preventDefault(); keys[key] = true; });
+                button.addEventListener('mouseup', (e) => { e.preventDefault(); keys[key] = false; });
+                button.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[key] = false; });
+                button.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; }, { passive: false });
+                button.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; }, { passive: false });
+            }
+        }
+
+        const map = {
+            layout: [],
+            colors: { 0: '#A0522D', 1: '#228B22', 2: '#0000CD' },
+            generate() {
+                let grid, waterPercentage;
+                do {
+                    grid = Array.from({ length: MAP_HEIGHT_TILES }, () => Array.from({ length: MAP_WIDTH_TILES }, () => Math.random() < 0.45 ? 2 : 0));
+                    for (let i = 0; i < 4; i++) {
+                        let newGrid = JSON.parse(JSON.stringify(grid));
+                        for (let y = 1; y < MAP_HEIGHT_TILES - 1; y++) {
+                            for (let x = 1; x < MAP_WIDTH_TILES - 1; x++) {
+                                let waterNeighbors = 0;
+                                for (let ny = y - 1; ny <= y + 1; ny++) for (let nx = x - 1; nx <= x + 1; nx++) if (grid[ny][nx] === 2) waterNeighbors++;
+                                if (waterNeighbors > 4) newGrid[y][x] = 2; else if (waterNeighbors < 4) newGrid[y][x] = 0;
+                            }
+                        }
+                        grid = newGrid;
+                    }
+                    const visited = Array.from({ length: MAP_HEIGHT_TILES }, () => Array(MAP_WIDTH_TILES).fill(false));
+                    const startNode = {x: 1, y: 1};
+                    if (grid[startNode.y][startNode.x] === 2) grid[startNode.y][startNode.x] = 0;
+                    const queue = [startNode];
+                    visited[startNode.y][startNode.x] = true;
+                    let head = 0;
+                    while (head < queue.length) {
+                        const {x, y} = queue[head++];
+                        const neighbors = [{x:x+1,y:y},{x:x-1,y:y},{x:x,y:y+1},{x:x,y:y-1}];
+                        for (const n of neighbors) {
+                            if (n.x >= 0 && n.x < MAP_WIDTH_TILES && n.y >= 0 && n.y < MAP_HEIGHT_TILES && !visited[n.y][n.x] && grid[n.y][n.x] !== 2) {
+                                visited[n.y][n.x] = true;
+                                queue.push(n);
+                            }
+                        }
+                    }
+                    for(let y=0; y<MAP_HEIGHT_TILES; y++) for(let x=0; x<MAP_WIDTH_TILES; x++) if(!visited[y][x]) grid[y][x] = 2;
+                    for(let y=0; y<MAP_HEIGHT_TILES; y++) for(let x=0; x<MAP_WIDTH_TILES; x++) if(x===0||x===MAP_WIDTH_TILES-1||y===0||y===MAP_HEIGHT_TILES-1) if(grid[y][x]===2)grid[y][x]=0;
+                    let waterCount = grid.flat().filter(tile => tile === 2).length;
+                    waterPercentage = waterCount / (MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+                } while (waterPercentage > 0.5);
+                
+                for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++) if (grid[y][x] === 0 && Math.random() > 0.6) grid[y][x] = 1;
+                this.layout = grid;
+            },
+            draw() {
+                for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++) {
+                    ctx.fillStyle = this.colors[this.layout[y][x]];
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            },
+            isSolid: (x, y) => map.layout[y][x] === 2,
+            isEncounterZone: (x, y) => map.layout[y][x] === 1
+        };
+        
+        const player = {
+            x: 10, y: 10, moveCooldown: 120, lastMoveTime: 0,
+            draw() {
+                spriteManager.draw('player', this.x * TILE_SIZE, this.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            },
+            handleMovement() {
+                if (ui.settingsModal.style.display === 'flex' ||
+                    ui.statsModal.style.display === 'flex' ||
+                    ui.customizeModal.style.display === 'flex' ||
+                    ui.monsterModal.style.display === 'flex' ||
+                    ui.spellModal.style.display === 'flex') {
+                    return;
+                }
+            
+                if(Date.now()-this.lastMoveTime<this.moveCooldown)return;
+                let dx=0,dy=0;
+                if(keys['ArrowUp'])dy=-1;else if(keys['ArrowDown'])dy=1;else if(keys['ArrowLeft'])dx=-1;else if(keys['ArrowRight'])dx=1;
+                if(dx===0&&dy===0)return;
+                this.lastMoveTime=Date.now();
+                const newX=this.x+dx,newY=this.y+dy;
+                if(newX<0){map.generate();this.x=MAP_WIDTH_TILES-2;return;}
+                if(newX>=MAP_WIDTH_TILES){map.generate();this.x=1;return;}
+                if(newY<0){map.generate();this.y=MAP_HEIGHT_TILES-2;return;}
+                if(newY>=MAP_HEIGHT_TILES){map.generate();this.y=1;return;}
+                if(!map.isSolid(newX, newY)){this.x=newX;this.y=newY;if(map.isEncounterZone(this.x,this.y))checkRandomEncounter();}
+            }
+        };
+        
+        class Unit {
+            constructor(name, baseName, hp, maxHp, atk, level=null, mp=null, maxMp=null, specialSkill = null, spriteKey = null) { 
+                this.name = name; 
+                this.baseName = baseName;
+                this.hp = hp; this.maxHp = maxHp; 
+                this.atk = atk; this.level = level; 
+                this.mp = mp; this.maxMp = maxMp;
+                this.specialSkill = specialSkill;
+                this.isPlayer = (level !== null);
+                this.spriteKey = spriteKey || baseName;
+            }
+            attack(target) {
+                const damage = Math.floor(this.atk * (0.8 + Math.random() * 0.4));
+                target.hp = Math.max(0, target.hp - damage);
+                return `${this.name} tấn công ${target.name}, gây ${damage} sát thương!`;
+            }
+        }
+        
+        let playerUnit;
+        let enemyUnits = [];
+        let turnOrder = [];
+        let currentTurnIndex = 0;
+        let selectedTargetIndex = 0;
+        let pendingPlayerAction = null;
+
+        const menuManager = {
+            currentMenu: 'main',
+            lastInputTime: 0,
+            menus: {
+                main: { el: ui.battleMenu, selectedIndex: 0 },
+                magic: { el: ui.magicMenu, selectedIndex: 0 }
+            },
+            init() {
+                const mainOptions = this.menus.main.el.querySelectorAll('li');
+                mainOptions.forEach((li, index) => {
+                    li.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (battleState === 'processing' || this.currentMenu !== 'main') return;
+                        this.menus.main.selectedIndex = index; this.select();
+                    });
+                     li.addEventListener('mouseenter', () => {
+                        if (battleState === 'playerTurn') this.menus.main.selectedIndex = index;
+                    });
+                });
+            },
+            update() {
+                if (Date.now() - this.lastInputTime < 150) return;
+                const menu = this.menus[this.currentMenu];
+                const options = menu.el.querySelectorAll('li');
+                if (options.length === 0) return;
+
+                let actionTaken = false;
+                if (keys['ArrowUp']) {
+                    menu.selectedIndex = (menu.selectedIndex - 1 + options.length) % options.length;
+                    actionTaken = true;
+                } else if (keys['ArrowDown']) {
+                    menu.selectedIndex = (menu.selectedIndex + 1) % options.length;
+                    actionTaken = true;
+                } else if (keys['Enter'] || keys[' ']) {
+                    this.select();
+                    actionTaken = true;
+                }
+                if (actionTaken) this.lastInputTime = Date.now();
+            },
+            draw() {
+                for (const menuKey in this.menus) {
+                    const menu = this.menus[menuKey];
+                    const options = menu.el.querySelectorAll('li');
+                    options.forEach((li, i) => li.classList.toggle('selected', i === menu.selectedIndex));
+                }
+            },
+            select() {
+                const menu = this.menus[this.currentMenu];
+                const selectedOption = menu.el.querySelectorAll('li')[menu.selectedIndex];
+
+                if (this.currentMenu === 'main') {
+                    const action = selectedOption.dataset.action;
+                    if (action === 'attack') {
+                        pendingPlayerAction = { type: 'attack' }; battleState = 'playerTargeting';
+                    } else if (action === 'magic') {
+                        this.switchMenu('magic'); battleState = 'playerChoosingSpell';
+                    } else if (action === 'flee') {
+                        battleState = 'processing'; updateInfoPanel(''); showMessage("Bạn đã bỏ chạy thành công!", () => battleState = 'flee');
+                    }
+                } else if (this.currentMenu === 'magic') {
+                    const spellId = selectedOption.dataset.spell;
+                    if (spellId === 'back') {
+                        this.switchMenu('main'); battleState = 'playerTurn';
+                    } else {
+                        pendingPlayerAction = { type: 'spell', spellId: spellId };
+                        battleState = 'playerTargeting'; this.switchMenu('main');
+                    }
+                }
+            },
+            castSpell(spellId, target) {
+                updateInfoPanel('');
+                const spell = spellManager.spells.find(s => s.id === spellId);
+                if (!spell) { console.error(`Spell ${spellId} not found!`); advanceTurn(); return; }
+
+                if (playerUnit.mp < spell.mpCost) {
+                    showMessage("Không đủ MP!", () => { battleState = 'playerTurn'; advanceTurn(); }); return;
+                }
+                playerUnit.mp -= spell.mpCost;
+                target.hp = Math.max(0, target.hp - spell.damage);
+                
+                const onAnimationComplete = () => {
+                    const msg = `Dùng ${spell.name} lên ${target.name}, gây ${spell.damage} sát thương!`;
+                    showMessage(msg, () => {
+                        checkBattleEnd();
+                        if (gameState === 'battle') advanceTurn();
+                    });
+                };
+                
+                playSpellAnimation(spell, target, onAnimationComplete);
+            },
+            switchMenu(menuKey) {
+                this.menus[this.currentMenu].el.style.display = 'none';
+                this.currentMenu = menuKey;
+                this.menus[this.currentMenu].el.style.display = 'block';
+                this.menus[this.currentMenu].selectedIndex = 0;
+            },
+            getCurrentDescription() {
+                const menu = this.menus[this.currentMenu];
+                const selectedOption = menu.el.querySelectorAll('li')[menu.selectedIndex];
+                return selectedOption ? selectedOption.dataset.description : '';
+            },
+            populateMagicMenu() {
+                ui.magicMenuList.innerHTML = '';
+                spellManager.spells.forEach(spell => {
+                    const li = document.createElement('li');
+                    li.dataset.spell = spell.id;
+                    li.dataset.description = `Gây ${spell.damage} sát thương ${spell.name} (${spell.mpCost} MP).`;
+                    li.textContent = `${spell.name} (${spell.mpCost} MP)`;
+                    ui.magicMenuList.appendChild(li);
+                });
+                const backLi = document.createElement('li');
+                backLi.dataset.spell = 'back';
+                backLi.dataset.description = 'Quay lại menu chính.';
+                backLi.textContent = 'Quay lại';
+                ui.magicMenuList.appendChild(backLi);
+
+                const magicOptions = this.menus.magic.el.querySelectorAll('li');
+                magicOptions.forEach((li, index) => {
+                     li.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (battleState === 'processing' || this.currentMenu !== 'magic') return;
+                        this.menus.magic.selectedIndex = index; this.select();
+                    });
+                    li.addEventListener('mouseenter', () => {
+                        if (battleState === 'playerChoosingSpell') this.menus.magic.selectedIndex = index;
+                    });
+                });
+            }
+        };
+
+        function startBattle() {
+            if(monsterManager.monsters.length===0) { alert("Không có quái vật nào để chiến đấu! Vui lòng thêm quái vật trong mục Quản lý."); return; }
+            gameState='battle';
+            
+            const pStats = playerDataManager.stats;
+            playerUnit = new Unit('Anh Hùng', 'Anh Hùng', pStats.maxHp, pStats.maxHp, pStats.atk, pStats.level, pStats.maxMp, pStats.maxMp, null, 'player');
+            
+            enemyUnits = [];
+            const enemyCount = Math.floor(Math.random() * 3) + 1;
+            const nameCounter = {};
+
+            for (let i = 0; i < enemyCount; i++) {
+                const randomEnemyData = {...monsterManager.monsters[Math.floor(Math.random()*monsterManager.monsters.length)]};
+                
+                if (!nameCounter[randomEnemyData.name]) nameCounter[randomEnemyData.name] = 0;
+                nameCounter[randomEnemyData.name]++;
+                const displayName = `${randomEnemyData.name} ${nameCounter[randomEnemyData.name]}`;
+                const baseName = randomEnemyData.name;
+
+                const scaledHp = randomEnemyData.hp + (pStats.level * 3 + 20);
+                
+                enemyUnits.push(new Unit(
+                    displayName, baseName, scaledHp, scaledHp, randomEnemyData.atk,
+                    null, null, null, randomEnemyData.specialSkill, baseName
+                ));
+            }
+
+            turnOrder = [playerUnit, ...enemyUnits];
+            currentTurnIndex = 0;
+            selectedTargetIndex = 0;
+
+            menuManager.populateMagicMenu();
+            menuManager.switchMenu('main');
+            ui.playerStatsPanel.style.display='block'; ui.enemyStatsPanel.style.display='block';
+            
+            const enemyNames = enemyUnits.map(e => e.name).join(', ');
+            showMessage(`Một nhóm ${enemyNames} xuất hiện!`, () => {
+                advanceTurn();
+            });
+            updateStatsUI();
+        }
+        
+        function endBattle() {
+            gameState='world';
+            updateInfoPanel('');
+            ui.battleMenu.style.display='none';ui.magicMenu.style.display='none';ui.playerStatsPanel.style.display='none';ui.enemyStatsPanel.style.display='none';ui.messageBox.style.display='none';
+            canvas.classList.remove('targeting');
+        }
+        
+        function checkRandomEncounter() {
+            if(Math.random()<0.2) {
+                const tileType = map.layout[player.y][player.x];
+                battleBackgroundColor = map.colors[tileType];
+                startBattle();
+            }
+        }
+        
+        function drawBattleScene() {
+            ctx.fillStyle = battleBackgroundColor;
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            const battleSpriteSize = TILE_SIZE * 4;
+            
+            spriteManager.draw('player', 100, canvas.height - battleSpriteSize - 80, battleSpriteSize, battleSpriteSize);
+            
+            const enemyStartX = canvas.width - 150 - battleSpriteSize;
+            const enemyStartY = 100;
+            const enemySpacingY = 80;
+
+            enemyUnits.forEach((enemy, index) => {
+                 const x = enemyStartX;
+                 const y = enemyStartY + index * enemySpacingY;
+                 spriteManager.draw(enemy.spriteKey, x, y, battleSpriteSize, battleSpriteSize);
+            });
+
+            if (currentAnimation && currentAnimation.type === 'spell') {
+                 if (currentAnimation.flashOn) {
+                    spriteManager.draw(currentAnimation.spriteKey, currentAnimation.x, currentAnimation.y, currentAnimation.size, currentAnimation.size);
+                 }
+            }
+        }
+        
+        function playSpellAnimation(spell, target, onComplete) {
+            const hasSprite = spell.spriteUrl && spell.spriteFlashes > 0;
+            const hasScreenFlash = spell.flashes > 0;
+
+            const executeScreenFlash = () => {
+                if (hasScreenFlash) {
+                    playScreenFlash(spell.effectColor, spell.flashes, onComplete);
+                } else {
+                    onComplete();
+                }
+            };
+
+            if (hasSprite) {
+                const battleSpriteSize = TILE_SIZE * 4;
+                const targetIndex = enemyUnits.indexOf(target);
+                
+                const enemyStartX = canvas.width - 150 - battleSpriteSize;
+                const enemyStartY = 100;
+                const enemySpacingY = 80;
+                const targetX = enemyStartX;
+                const targetY = enemyStartY + targetIndex * enemySpacingY;
+                
+                currentAnimation = {
+                    type: 'spell',
+                    spriteKey: spell.id,
+                    x: targetX,
+                    y: targetY,
+                    size: battleSpriteSize,
+                    flashOn: true,
+                    flashesLeft: spell.spriteFlashes * 2,
+                    interval: 120
+                };
+                
+                const animInterval = setInterval(() => {
+                    currentAnimation.flashesLeft--;
+                    currentAnimation.flashOn = !currentAnimation.flashOn;
+                    if (currentAnimation.flashesLeft <= 0) {
+                        clearInterval(animInterval);
+                        currentAnimation = null;
+                        executeScreenFlash();
+                    }
+                }, currentAnimation.interval);
+
+            } else {
+                 executeScreenFlash();
+            }
+        }
+
+        function playScreenFlash(color, times, onComplete) {
+            if (times <= 0) { onComplete(); return; }
+            const originalColor = battleBackgroundColor;
+            let flashes = 0;
+            const interval = setInterval(() => {
+                battleBackgroundColor = flashes % 2 === 0 ? color : originalColor;
+                flashes++;
+                if (flashes >= times * 2) {
+                    clearInterval(interval);
+                    battleBackgroundColor = originalColor;
+                    onComplete();
+                }
+            }, 100);
+        }
+
+        function updateStatsUI() {
+            if(!playerUnit) return;
+            const createPlayerHtml = u => `Anh Hùng-Cấp ${u.level}<br>HP: ${u.hp}/${u.maxHp}<div class="hp-bar-container"><div class="hp-bar" style="width:${(u.hp/u.maxHp*100)}%"></div></div>MP: ${u.mp}/${u.maxMp}<div class="hp-bar-container"><div class="mp-bar" style="width:${(u.mp > 0 ? u.mp/u.maxMp*100 : 0)}%"></div></div>ATK: ${u.atk}`;
+            
+            let enemyHtml = '';
+            enemyUnits.forEach((u, index) => {
+                enemyHtml += `<div>${selectedTargetIndex === index && battleState === 'playerTargeting' ? '▶ ' : ''}${u.name}<div class="hp-bar-container"><div class="hp-bar" style="width:${u.hp/u.maxHp*100}%"></div></div></div>`;
+            });
+
+            ui.playerStatsPanel.innerHTML = createPlayerHtml(playerUnit);
+            ui.enemyStatsPanel.innerHTML = enemyHtml;
+        }
+        
+        function showMessage(text, callback) {
+            gameState='message';
+            ui.messageBox.style.display='block';
+            ui.messageText.textContent = ''; 
+            ui.nextIndicator.style.display = 'none';
+            
+            let i=0, typingInterval = null, isTyping = true, continueListener = null, clickListener = null;
+
+            const proceed = () => {
+                window.removeEventListener('keydown', continueListener);
+                ui.messageBox.removeEventListener('click', clickListener);
+                ui.nextIndicator.style.display = 'none';
+                ui.messageBox.style.display = 'none';
+                if (gameState !== 'gameOver') gameState='battle';
+                if(callback) callback();
+            };
+
+            const finishTyping = () => {
+                if(!isTyping) return;
+                isTyping = false;
+                clearInterval(typingInterval);
+                ui.messageText.textContent = text;
+                ui.nextIndicator.style.display = 'block';
+            };
+
+            const handleInput = (e) => {
+                if(e) e.stopPropagation();
+                if(isTyping) finishTyping();
+                else proceed();
+            };
+            
+            continueListener = (e) => { if(e.key === 'Enter' || e.key === ' ') handleInput(); };
+            clickListener = (e) => handleInput(e);
+
+            window.addEventListener('keydown', continueListener);
+            ui.messageBox.addEventListener('click', clickListener);
+            
+            typingInterval = setInterval(() => {
+                if(i < text.length){
+                    ui.messageText.textContent += text.charAt(i++);
+                } else {
+                    finishTyping();
+                }
+            }, 30);
+        }
+        
+        function handleLevelUp(callback) {
+            playerDataManager.levelUp();
+            const pStats = playerDataManager.stats;
+            const levelUpMessage = `LEVEL UP! Cấp ${pStats.level}!\nATK+5! HP:${pStats.maxHp} MP:${pStats.maxMp}\nCần ${pStats.battlesToNextLevel} trận để lên cấp.`;
+            showMessage(levelUpMessage, callback);
+        }
+
+        // ===================================
+        // BATTLE LOGIC & GAME LOOP
+        // ===================================
+        function update() {
+            if(gameState==='world') player.handleMovement();
+            else if(gameState==='battle') handleBattleLogic();
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+
+            if(gameState==='world'){
+                updateInfoPanel('');
+                map.draw();
+                player.draw();
+                ui.targetSelector.style.display = 'none';
+            } else { 
+                drawBattleScene();
+
+                if (battleState === 'playerTurn' || battleState === 'playerChoosingSpell') {
+                    menuManager.draw();
+                }
+                
+                if (battleState === 'playerTargeting') {
+                    updateInfoPanel('Chọn mục tiêu...');
+                    if (enemyUnits.length > 0) {
+                        const battleSpriteSize = TILE_SIZE * 4;
+                        const enemyStartX = canvas.width - 150 - battleSpriteSize;
+                        const enemyStartY = 100;
+                        const enemySpacingY = 80;
+                        
+                        const selectorX = enemyStartX + (battleSpriteSize / 2) - (ui.targetSelector.offsetWidth / 2);
+                        const selectorY = enemyStartY + selectedTargetIndex * enemySpacingY - ui.targetSelector.offsetHeight;
+
+                        ui.targetSelector.style.left = `${selectorX}px`;
+                        ui.targetSelector.style.top = `${selectorY}px`;
+                        ui.targetSelector.style.display = 'block';
+                    }
+                } else {
+                    ui.targetSelector.style.display = 'none';
+                }
+            }
+        }
+        
+        function handleBattleLogic() {
+            if (battleState === 'processing' || currentAnimation) return; 
+
+            const currentUnit = turnOrder[currentTurnIndex];
+            if (currentUnit && currentUnit.isPlayer) {
+                if (battleState === 'playerTurn' || battleState === 'playerChoosingSpell') {
+                    menuManager.update();
+                    updateInfoPanel(menuManager.getCurrentDescription());
+                } else if (battleState === 'playerTargeting') {
+                    handleTargeting();
+                    canvas.classList.add('targeting');
+                }
+            } else {
+                 canvas.classList.remove('targeting');
+            }
+        }
+        
+        canvas.addEventListener('click', (event) => {
+            if (battleState !== 'playerTargeting') return;
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (event.clientX - rect.left) * scaleX;
+            const y = (event.clientY - rect.top) * scaleY;
+
+            const battleSpriteSize = TILE_SIZE * 4;
+            const enemyStartX = canvas.width - 150 - battleSpriteSize;
+            const enemyStartY = 100;
+            const enemySpacingY = 80;
+
+            enemyUnits.forEach((enemy, index) => {
+                const ex = enemyStartX;
+                const ey = enemyStartY + index * enemySpacingY;
+                if (x > ex && x < ex + battleSpriteSize && y > ey && y < ey + battleSpriteSize) {
+                    selectedTargetIndex = index;
+                    updateStatsUI();
+                    executePlayerAction();
+                }
+            });
+        });
+
+        function handleTargeting() {
+            if (Date.now() - menuManager.lastInputTime < 150) return;
+
+            let actionTaken = false;
+            if (keys['ArrowUp']) {
+                selectedTargetIndex = (selectedTargetIndex - 1 + enemyUnits.length) % enemyUnits.length;
+                actionTaken = true;
+            } else if (keys['ArrowDown']) {
+                selectedTargetIndex = (selectedTargetIndex + 1) % enemyUnits.length;
+                actionTaken = true;
+            } else if (keys['Enter'] || keys[' ']) {
+                executePlayerAction();
+                actionTaken = true;
+            } else if (keys['Escape'] || keys['Backspace']) {
+                battleState = 'playerTurn';
+                pendingPlayerAction = null;
+                actionTaken = true;
+            }
+
+            if(actionTaken) {
+                menuManager.lastInputTime = Date.now();
+                updateStatsUI();
+            }
+        }
+        
+        function executePlayerAction() {
+            battleState = 'processing';
+            updateInfoPanel('');
+            ui.targetSelector.style.display = 'none';
+            canvas.classList.remove('targeting');
+            const target = enemyUnits[selectedTargetIndex];
+            if (!target) { advanceTurn(); return; }
+
+            if (pendingPlayerAction.type === 'attack') {
+                const msg = playerUnit.attack(target);
+                showMessage(msg, () => {
+                    checkBattleEnd();
+                    if (gameState === 'battle') advanceTurn();
+                });
+            } else if (pendingPlayerAction.type === 'spell') {
+                menuManager.castSpell(pendingPlayerAction.spellId, target);
+            }
+            pendingPlayerAction = null;
+        }
+
+        function advanceTurn() {
+            updateStatsUI(); 
+            turnOrder = turnOrder.filter(unit => unit.hp > 0);
+            if (checkBattleEnd()) return;
+
+            currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length;
+            if (currentTurnIndex >= turnOrder.length) currentTurnIndex = 0;
+            
+            const nextUnit = turnOrder[currentTurnIndex];
+
+            if (nextUnit.isPlayer) {
+                battleState = 'playerTurn';
+                menuManager.switchMenu('main');
+                updateInfoPanel(menuManager.getCurrentDescription());
+            } else {
+                battleState = 'processing';
+                updateInfoPanel(`Lượt của ${nextUnit.name}...`);
+                setTimeout(() => executeEnemyTurn(nextUnit), 1200);
+            }
+        }
+        
+        function executeEnemyTurn(enemy) {
+            updateInfoPanel(`Lượt của ${enemy.name}...`);
+            if (enemy.specialSkill && Math.random() < enemy.specialSkill.chance) {
+                const skill = enemy.specialSkill;
+                playerUnit.hp = Math.max(0, playerUnit.hp - skill.damage);
+                const msg = `${enemy.name} dùng ${skill.name}! Anh Hùng nhận ${skill.damage} sát thương!`;
+                playScreenFlash('orange', 2, () => {
+                     showMessage(msg, () => {
+                        checkBattleEnd();
+                        if(gameState === 'battle') advanceTurn();
+                    });
+                });
+            } else {
+                const msg = enemy.attack(playerUnit);
+                 showMessage(msg, () => {
+                    checkBattleEnd();
+                    if(gameState === 'battle') advanceTurn();
+                });
+            }
+        }
+
+        function checkBattleEnd() {
+            enemyUnits = enemyUnits.filter(e => e.hp > 0);
+            updateStatsUI();
+
+            if (playerUnit.hp <= 0) {
+                battleState = 'processing'; gameState = 'gameOver';
+                updateInfoPanel('BẠN ĐÃ THUA!'); ui.gameOverScreen.style.display = 'flex';
+                return true;
+            }
+            if (enemyUnits.length === 0) {
+                battleState = 'processing'; updateInfoPanel('CHIẾN THẮNG!');
+                playerDataManager.stats.battlesWon++;
+                playerDataManager.save();
+                const willLevelUp = playerDataManager.stats.battlesWon >= playerDataManager.stats.battlesToNextLevel;
+                showMessage(`Bạn đã chiến thắng!`, () => {
+                    if (willLevelUp) { handleLevelUp(endBattle); } 
+                    else { endBattle(); }
+                });
+                return true;
+            }
+            return false;
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // INITIALIZE AND START GAME
+        playerDataManager.load();
+        monsterManager.load();
+        spellManager.load(); 
+        map.generate();
+        menuManager.init();
+        monsterModal.init();
+        spellModal.init();
+
+        setupModalListeners();
+        setupDPadListeners();
+
+        spriteManager.loadAll(() => {
+            if (!gameStarted) {
+                console.log("Tất cả tài nguyên đã sẵn sàng, bắt đầu game!");
+                gameStarted = true;
+                gameLoop();
+            }
+        });
+    </script>
+</body>
+</html>
