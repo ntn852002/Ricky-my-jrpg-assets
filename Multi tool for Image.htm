@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ tổng hợp</title>
+    
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .main-wrapper {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 20px;
+            width: 100%;
+            max-width: 1500px; 
+            justify-content: center;
+        }
+        .tab-container {
+            flex-grow: 1;
+            flex-basis: 700px; 
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 20px; 
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-button {
+            flex-grow: 1;
+            padding: 15px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: #f8f9fa;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #555;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            text-align: center;
+        }
+        .tab-button:hover {
+            background-color: #e2e6ea;
+        }
+        .tab-button.active {
+            background-color: #007bff;
+            color: white;
+            border-bottom: 3px solid #007bff;
+        }
+        .tab-content {
+            padding: 2rem;
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .github-converter-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .github-converter-container h1 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+        .github-converter-container .input-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        .github-converter-container label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .github-converter-container input[type="text"],
+        .github-converter-container input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .github-converter-container input[readonly] {
+            background-color: #e9ecef;
+            cursor: text;
+        }
+        .github-converter-container .output-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .github-converter-container button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+        .github-converter-container button:hover {
+            background-color: #0056b3;
+        }
+        #copy-btn {
+            background-color: #28a745;
+        }
+        #copy-btn:hover {
+            background-color: #218838;
+        }
+        #status {
+            margin-top: 1rem;
+            font-weight: 500;
+            min-height: 24px;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        #preview-container {
+            margin-top: 1.5rem;
+        }
+        #preview-image {
+            max-width: 100%;
+            max-height: 150px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            display: none;
+            object-fit: contain;
+        }
+
+        .sprite-animation-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .sprite-animation-container h1 {
+            margin-bottom: 25px;
+            color: #333;
+            text-align: center;
+            width: 100%;
+        }
+        .sprite-animation-main-container { 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            width: 100%;
+        }
+        .controls-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex-grow: 1;
+            flex-basis: 400px;
+            min-width: 300px;
+            align-items: flex-start;
+        }
+        .display-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex-grow: 1;
+            flex-basis: 400px;
+            min-width: 300px;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            width: 100%;
+            justify-content: flex-start;
+        }
+        .controls-column button,
+        .controls-column select,
+        .controls-column label,
+        .controls-column input[type="number"],
+        .controls-column input[type="file"] {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            box-sizing: border-box;
+        }
+        .controls-column button:hover {
+            background-color: #e0e0e0;
+        }
+        .controls-column select {
+            flex-grow: 1;
+            min-width: 150px;
+        }
+        .controls-column input[type="number"] {
+            width: 80px;
+            text-align: center;
+        }
+        .controls-column input[type="file"] {
+            flex-grow: 1;
+            padding: 8px 15px;
+        }
+        .controls-column label {
+            white-space: nowrap;
+        }
+        #apply-settings-button {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            border-color: #4CAF50;
+            padding: 12px 20px;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            text-align: center;
+            margin-top: auto;
+        }
+        #apply-settings-button:hover {
+            background-color: #45a049;
+        }
+        .info-panel {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 1.1em;
+            color: #333;
+        }
+        .info-panel strong {
+            color: #0056b3;
+        }
+        .sprite-display-area {
+            width: 128px;
+            height: 128px;
+            background-color: #cccccc;
+            background-image:
+                linear-gradient(45deg, #eee 25%, transparent 25%),
+                linear-gradient(-45deg, #eee 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #eee 75%),
+                linear-gradient(-45deg, transparent 75%, #eee 75%);
+            background-size: 32px 32px;
+            background-position: 0 0, 0 16px, 16px -16px, -16px 0px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #333;
+            border-radius: 8px;
+        }
+        .sprite-container {
+            width: 64px;
+            height: 64px;
+            overflow: hidden;
+            position: relative;
+        }
+        .sprite {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-repeat: no-repeat;
+            image-rendering: pixelated;
+        }
+
+        .note-panel-container {
+            flex-grow: 1;
+            flex-basis: 400px; 
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 80vh; 
+        }
+        .note-panel-container h2 {
+            font-size: 1.5rem;
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .note-display {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            min-height: 200px;
+            max-height: 60%; 
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            flex-grow: 1; 
+        }
+        .note-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        .note-item:last-child {
+            border-bottom: none;
+        }
+        .note-item span {
+            flex-grow: 1;
+            word-break: break-word; 
+            margin-right: 10px;
+        }
+        .note-item .note-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .note-item .note-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            color: #888;
+            padding: 3px;
+        }
+        .note-item .note-actions button:hover {
+            color: #333;
+        }
+        .note-input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .note-input-group input[type="text"] {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        .note-input-group button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .note-input-group button:hover {
+            background-color: #0056b3;
+        }
+        .note-action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .note-action-buttons button {
+            flex-grow: 1;
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .note-action-buttons button:hover {
+            background-color: #218838;
+        }
+        .note-action-buttons .load-btn {
+            background-color: #6c757d;
+        }
+        .note-action-buttons .load-btn:hover {
+            background-color: #5a6268;
+        }
+
+        .xml-converter-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .xml-converter-section h2 {
+            margin-top: 0;
+            color: #3c4043;
+            border-bottom: 2px solid #1a73e8;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .xml-converter-section input[type="file"] {
+            display: block;
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: calc(100% - 22px);
+        }
+        .xml-converter-section button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+            display: block;
+            width: 100%;
+        }
+        .xml-converter-section button:hover {
+            background-color: #155ab6;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        #xml-status {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f0fe;
+            border: 1px solid #d2e3fc;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: "Courier New", Courier, monospace;
+            min-height: 50px;
+            color: #333;
+        }
+
+
+        @media (max-width: 1200px) {
+            .main-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
+            .tab-container, .note-panel-container {
+                flex-basis: auto;
+                width: 100%;
+                max-width: 800px; 
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sprite-animation-main-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+            }
+            .controls-column, .display-column {
+                width: 100%;
+                min-width: unset;
+                align-items: center;
+            }
+            .control-group {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .controls-column label {
+                margin-right: unset;
+                margin-bottom: 5px;
+            }
+            .controls-column input[type="file"],
+            .controls-column select,
+            .controls-column input[type="number"],
+            .controls-column button {
+                width: 100%;
+                min-width: unset;
+            }
+            .github-converter-container .output-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .github-converter-container input[type="text"] {
+                width: 100%;
+            }
+            .github-converter-container button {
+                width: 100%;
+            }
+            .note-action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-wrapper">
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab-button active" onclick="openTab(event, 'githubConverter')">Chuyển đổi Link GitHub</button>
+                <button class="tab-button" onclick="openTab(event, 'spriteAnimation')">Hoạt ảnh Sprite</button>
+                <button class="tab-button" onclick="openTab(event, 'xmlExcelConverter')">Chuyển đổi XML & Excel</button>
+            </div>
+
+            <div id="githubConverter" class="tab-content active">
+                <div class="github-converter-container">
+                    <h1>Chuyển đổi Link GitHub sang jsDelivr CDN</h1>
+
+                    <div class="input-group">
+                        <label for="github-url">Dán link GitHub vào đây:</label>
+                        <input type="url" id="github-url" placeholder="https://github.com/user/repo/blob/main/file.gif">
+                    </div>
+
+                    <button id="convert-btn">Chuyển đổi</button>
+
+                    <div class="input-group" style="margin-top: 1.5rem;">
+                        <label for="jsdelivr-url">Link jsDelivr đã tạo:</label>
+                        <div class="output-container">
+                            <input type="text" id="jsdelivr-url" readonly>
+                            <button id="copy-btn">Sao chép</button>
+                        </div>
+                    </div>
+
+                    <div id="status"></div>
+
+                    <div id="preview-container">
+                        <label>Xem trước ảnh:</label>
+                        <img id="preview-image" src="" alt="Image Preview">
+                    </div>
+                </div>
+            </div>
+
+            <div id="spriteAnimation" class="tab-content">
+                <div class="sprite-animation-container">
+                    <h1>Sprite Animation</h1>
+
+                    <div class="sprite-animation-main-container">
+                        <div class="controls-column">
+                            <div class="control-group">
+                                <label for="upload-sprite">Tải ảnh Sprite lên:</label>
+                                <input type="file" id="upload-sprite" accept="image/png, image/jpeg, image/gif">
+                            </div>
+                            <div class="control-group">
+                                <label for="row-select">Chọn hàng hoạt ảnh:</label>
+                                <select id="row-select"></select>
+                            </div>
+                            <div class="control-group">
+                                <label for="frames-per-row-input">Khung hình/hàng:</label>
+                                <input type="number" id="frames-per-row-input" min="1" value="15">
+                            </div>
+                            <div class="control-group">
+                                <button id="stop-animation">Dừng</button>
+                                <button id="toggle-loop">Tắt Loop</button>
+                                <button id="speed-up">Nhanh hơn</button>
+                                <button id="speed-down">Chậm hơn</button>
+                            </div>
+
+                            <button id="apply-settings-button">ÁP DỤNG CÀI ĐẶT & BẮT ĐẦU HOẠT ẢNH</button>
+                        </div>
+
+                        <div class="display-column">
+                            <div class="info-panel">
+                                <p>Tên File: <strong id="info-filename">N/A</strong></p>
+                                <p>Hàng hiện tại: <strong id="info-current-row">N/A</strong></p>
+                                <p>Số khung hình/hàng: <strong id="info-frames-per-row">N/A</strong></p>
+                                <p>Tốc độ hiện tại: <strong id="info-animation-speed">N/A</strong></p>
+                                <p>Trạng thái Loop: <strong id="info-loop-status">N/A</strong></p>
+                            </div>
+
+                            <div class="sprite-display-area">
+                                <div class="sprite-container">
+                                    <div class="sprite" id="character-sprite"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="xmlExcelConverter" class="tab-content">
+                
+                <h1>Công cụ chuyển đổi XML &lt;=&gt; Excel</h1>
+
+                <div class="xml-converter-section">
+                    <h2>XML sang Excel</h2>
+                    <p>Chọn file <code>.xml</code> để chuyển đổi sang file Excel (<code>.xlsx</code>)</p>
+                    <input type="file" id="xmlFileInput" accept=".xml">
+                    <button id="convertToExcelBtn">Chuyển sang Excel</button>
+                </div>
+
+                <div class="xml-converter-section">
+                    <h2>Excel sang XML</h2>
+                    <p>Chọn file <code>.xlsx</code> để chuyển đổi ngược lại thành file XML.</p>
+                    <input type="file" id="excelFileInput" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <button id="convertToXmlBtn">Chuyển sang XML</button>
+                </div>
+
+                <div id="xml-status">
+                    Trạng thái: Sẵn sàng. Vui lòng chọn file và bắt đầu chuyển đổi.
+                </div>
+
+            </div>
+        </div>
+
+        <div class="note-panel-container">
+            <h2>Ghi chú / Nhật ký</h2>
+            <div id="note-display" class="note-display">
+                </div>
+            <div class="note-input-group">
+                <input type="text" id="note-input" placeholder="Nhập ghi chú của bạn...">
+                <button id="add-note-btn">OK</button>
+            </div>
+            <div class="note-action-buttons">
+                <input type="file" id="load-notes-input" accept=".txt" style="display: none;">
+                <button id="load-notes-btn" class="load-btn">Tải file nhật ký</button>
+                <button id="save-notes-btn">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            var i, tabcontent, tabbuttons;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tabbuttons = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tabbuttons.length; i++) {
+                tabbuttons[i].className = tabbuttons[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelector('.tab-button').click();
+        });
+
+
+        const githubInput = document.getElementById('github-url');
+        const convertBtn = document.getElementById('convert-btn');
+        const jsdelivrOutput = document.getElementById('jsdelivr-url');
+        const copyBtn = document.getElementById('copy-btn');
+        const statusEl = document.getElementById('status');
+        const previewImage = document.getElementById('preview-image');
+
+        function convertUrl() {
+            const githubUrl = githubInput.value.trim();
+            statusEl.textContent = '';
+            previewImage.style.display = 'none';
+
+            if (!githubUrl) {
+                statusEl.textContent = 'Vui lòng nhập link GitHub.';
+                statusEl.className = 'error';
+                return;
+            }
+
+            if (!githubUrl.includes('github.com') || !githubUrl.includes('/blob/')) {
+                statusEl.textContent = 'Định dạng link không hợp lệ. Link phải chứa "github.com" và "/blob/".';
+                statusEl.className = 'error';
+                return;
+            }
+
+            let jsdelivrUrl = githubUrl.replace('https://github.com/', 'https://cdn.jsdelivr.net/gh/');
+            jsdelivrUrl = jsdelivrUrl.replace('/blob/', '@');
+
+            jsdelivrOutput.value = jsdelivrUrl;
+            statusEl.textContent = 'Chuyển đổi thành công!';
+            statusEl.className = 'success';
+
+            previewImage.src = jsdelivrUrl;
+            previewImage.style.display = 'block';
+        }
+
+        convertBtn.addEventListener('click', convertUrl);
+        githubInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                convertUrl();
+            }
+        });
+        copyBtn.addEventListener('click', () => {
+            const urlToCopy = jsdelivrOutput.value;
+            if (!urlToCopy) {
+                statusEl.textContent = 'Không có gì để sao chép.';
+                statusEl.className = 'error';
+                return;
+            }
+
+            navigator.clipboard.writeText(urlToCopy).then(() => {
+                statusEl.textContent = 'Đã sao chép vào clipboard!';
+                statusEl.className = 'success';
+            }).catch(err => {
+                statusEl.textContent = 'Sao chép thất bại!';
+                statusEl.className = 'error';
+                console.error('Lỗi sao chép:', err);
+            });
+        });
+
+        const spriteSheet = document.getElementById('character-sprite');
+        const rowSelect = document.getElementById('row-select');
+        const stopButton = document.getElementById('stop-animation');
+        const toggleLoopButton = document.getElementById('toggle-loop');
+        const speedUpButton = document.getElementById('speed-up');
+        const speedDownButton = document.getElementById('speed-down');
+        const framesPerRowInput = document.getElementById('frames-per-row-input');
+        const uploadSpriteInput = document.getElementById('upload-sprite');
+        const applySettingsButton = document.getElementById('apply-settings-button');
+
+        const infoFilename = document.getElementById('info-filename');
+        const infoCurrentRow = document.getElementById('info-current-row');
+        const infoFramesPerRow = document.getElementById('info-frames-per-row');
+        const infoAnimationSpeed = document.getElementById('info-animation-speed');
+        const infoLoopStatus = document.getElementById('info-loop-status');
+
+        const frameWidth = 64;
+        const frameHeight = 64;
+        let totalRows = 16;
+
+        let currentFrame = 0;
+        let currentRow = 0;
+        let animationInterval;
+        let animationSpeed = 100;
+        let isLooping = true;
+        let framesPerRow = 15;
+        let currentFilename = "Character 1.png";
+
+        framesPerRowInput.value = framesPerRow;
+
+        function populateRowSelect() {
+            rowSelect.innerHTML = '';
+            for (let i = 0; i < totalRows; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Hàng ${i + 1}`;
+                rowSelect.appendChild(option);
+            }
+            if (currentRow >= totalRows) {
+                currentRow = 0;
+            }
+            rowSelect.value = currentRow;
+        }
+
+        function updateSpritePosition() {
+            const xOffset = -currentFrame * frameWidth;
+            const yOffset = -currentRow * frameHeight;
+            spriteSheet.style.backgroundPosition = `${xOffset}px ${yOffset}px`;
+            updateInfoPanel();
+        }
+
+        function animateSprite() {
+            currentFrame++;
+            if (currentFrame >= framesPerRow) {
+                if (isLooping) {
+                    currentFrame = 0;
+                } else {
+                    stopAnimation();
+                    currentFrame = framesPerRow - 1;
+                }
+            }
+            updateSpritePosition();
+        }
+
+        function startAnimation() {
+            stopAnimation();
+            currentFrame = 0;
+            updateSpritePosition();
+            animationInterval = setInterval(animateSprite, animationSpeed);
+            updateInfoPanel();
+        }
+
+        function stopAnimation() {
+            clearInterval(animationInterval);
+            updateInfoPanel();
+        }
+
+        function toggleLoop() {
+            isLooping = !isLooping;
+            toggleLoopButton.textContent = isLooping ? "Tắt Loop" : "Bật Loop";
+            if (animationInterval && !isLooping && currentFrame === framesPerRow - 1) {
+                stopAnimation();
+            }
+            updateInfoPanel();
+        }
+
+        function changeSpeed(factor) {
+            const newSpeed = animationSpeed * factor;
+            if (newSpeed > 20 && newSpeed < 1000) {
+                animationSpeed = Math.round(newSpeed);
+                if (animationInterval) {
+                    startAnimation();
+                }
+            }
+            updateInfoPanel();
+        }
+
+        function applySettingsAndStartAnimation() {
+            const newFramesPerRow = parseInt(framesPerRowInput.value);
+            if (!isNaN(newFramesPerRow) && newFramesPerRow > 0) {
+                framesPerRow = newFramesPerRow;
+            } else {
+                alert("Vui lòng nhập một số hợp lệ cho Khung hình/hàng. Đặt về giá trị mặc định.");
+                framesPerRow = 15;
+                framesPerRowInput.value = framesPerRow;
+            }
+
+            currentRow = parseInt(rowSelect.value);
+            startAnimation();
+            updateInfoPanel();
+        }
+
+        function updateInfoPanel() {
+            infoFilename.textContent = currentFilename;
+            infoCurrentRow.textContent = `${currentRow + 1} / ${totalRows}`;
+            infoFramesPerRow.textContent = framesPerRow;
+            infoAnimationSpeed.textContent = `${animationSpeed} ms (${(1000 / animationSpeed).toFixed(1)} FPS)`;
+            infoLoopStatus.textContent = isLooping ? "Đang Bật" : "Đang Tắt";
+        }
+
+        uploadSpriteInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                currentFilename = file.name;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    spriteSheet.style.backgroundImage = `url('${e.target.result}')`;
+                    stopAnimation();
+                    currentFrame = 0;
+                    currentRow = 0;
+                    rowSelect.value = 0;
+
+                    const img = new Image();
+                    img.onload = () => {
+                    };
+                    img.src = e.target.result;
+
+                    updateSpritePosition();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert("Vui lòng chọn một tệp hình ảnh (PNG, JPG, GIF).");
+                currentFilename = "N/A";
+                updateInfoPanel();
+            }
+        });
+
+        rowSelect.addEventListener('change', (event) => {
+            currentRow = parseInt(event.target.value);
+            currentFrame = 0;
+            updateSpritePosition();
+        });
+
+        stopButton.addEventListener('click', stopAnimation);
+        toggleLoopButton.addEventListener('click', toggleLoop);
+        speedUpButton.addEventListener('click', () => changeSpeed(0.7));
+        speedDownButton.addEventListener('click', () => changeSpeed(1.3));
+        applySettingsButton.addEventListener('click', applySettingsAndStartAnimation);
+
+        spriteSheet.style.backgroundImage = `url('Character 1.png')`;
+        currentFilename = 'Character 1.png';
+        populateRowSelect();
+        updateSpritePosition();
+        toggleLoopButton.textContent = isLooping ? "Tắt Loop" : "Bật Loop";
+        startAnimation();
+
+        const noteInput = document.getElementById('note-input');
+        const addNoteBtn = document.getElementById('add-note-btn');
+        const noteDisplay = document.getElementById('note-display');
+        const saveNotesBtn = document.getElementById('save-notes-btn'); 
+        const loadNotesBtn = document.getElementById('load-notes-btn'); 
+        const loadNotesInput = document.getElementById('load-notes-input'); 
+
+        let notes = []; 
+        let loadedFileName = null; 
+
+        function formatDateTime(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0'); 
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+        }
+
+        function renderNotes() {
+            noteDisplay.innerHTML = '';
+            notes.forEach((note, index) => {
+                const noteItem = document.createElement('div');
+                noteItem.classList.add('note-item');
+                noteItem.setAttribute('data-index', index);
+                noteItem.innerHTML = `
+                    <span>${note.timestamp} - ${note.text}</span>
+                    <div class="note-actions">
+                        <button class="move-up-btn" title="Di chuyển lên">⬆️</button>
+                        <button class="move-down-btn" title="Di chuyển xuống">⬇️</button>
+                        <button class="delete-note-btn" title="Xóa">🗑️</button>
+                    </div>
+                `;
+                noteDisplay.appendChild(noteItem);
+            });
+            
+            noteDisplay.scrollTop = noteDisplay.scrollHeight;
+        }
+
+        function addNote() {
+            const text = noteInput.value.trim();
+            if (text) {
+                const timestamp = formatDateTime(new Date());
+                notes.push({ timestamp, text });
+                noteInput.value = '';
+                renderNotes();
+            }
+        }
+
+        function deleteNote(index) {
+            notes.splice(index, 1);
+            renderNotes();
+        }
+
+        function moveNote(index, direction) {
+            if (direction === 'up' && index > 0) {
+                [notes[index - 1], notes[index]] = [notes[index], notes[index - 1]];
+            } else if (direction === 'down' && index < notes.length - 1) {
+                [notes[index + 1], notes[index]] = [notes[index], notes[index + 1]];
+            }
+            renderNotes();
+        }
+
+        function saveNotes() {
+            const allNotesText = notes.map(note => `${note.timestamp} - ${note.text}`).join('\n');
+            const blob = new Blob([allNotesText], { type: 'text/plain;charset=utf-8' });
+            const today = new Date();
+            
+            const filename = loadedFileName || `notes_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}.txt`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }
+
+        function loadNotes(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'text/plain') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    notes = content.split('\n').filter(line => line.trim() !== '').map(line => {
+                        
+                        const parts = line.split(' - ');
+                        if (parts.length > 1) {
+                            const timestamp = parts[0];
+                            const text = parts.slice(1).join(' - ');
+                            return { timestamp, text };
+                        } else {
+                            
+                            return { timestamp: formatDateTime(new Date()), text: line };
+                        }
+                    });
+                    loadedFileName = file.name; 
+                    renderNotes();
+                    alert(`Đã tải thành công file "${file.name}"`);
+                };
+                reader.onerror = function() {
+                    alert('Không thể đọc file đã chọn.');
+                };
+                reader.readAsText(file);
+            } else {
+                alert('Vui lòng chọn một file TXT hợp lệ.');
+            }
+        }
+
+        addNoteBtn.addEventListener('click', addNote);
+        noteInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                addNote();
+            }
+        });
+
+        noteDisplay.addEventListener('click', (event) => {
+            const target = event.target;
+            const noteItem = target.closest('.note-item');
+            if (!noteItem) return;
+
+            const index = parseInt(noteItem.getAttribute('data-index'));
+
+            if (target.classList.contains('delete-note-btn')) {
+                deleteNote(index);
+            } else if (target.classList.contains('move-up-btn')) {
+                moveNote(index, 'up');
+            } else if (target.classList.contains('move-down-btn')) {
+                moveNote(index, 'down');
+            }
+        });
+
+        saveNotesBtn.addEventListener('click', saveNotes); 
+        loadNotesBtn.addEventListener('click', () => loadNotesInput.click()); 
+        loadNotesInput.addEventListener('change', loadNotes); 
+
+        
+        renderNotes();
+
+
+        const xmlFileInput = document.getElementById('xmlFileInput');
+        const convertToExcelBtn = document.getElementById('convertToExcelBtn');
+        const excelFileInput = document.getElementById('excelFileInput');
+        const convertToXmlBtn = document.getElementById('convertToXmlBtn');
+        const xmlStatusDiv = document.getElementById('xml-status');
+
+        
+        convertToExcelBtn.addEventListener('click', () => {
+            if (!xmlFileInput.files.length) {
+                xmlStatusDiv.textContent = 'Lỗi: Vui lòng chọn một file XML trước.';
+                return;
+            }
+            const file = xmlFileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    xmlStatusDiv.textContent = 'Đang đọc và phân tích file XML...';
+                    const xmlString = e.target.result;
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlString, "application/xml");
+
+                    if (xmlDoc.getElementsByTagName("parsererror").length) {
+                        throw new Error("File XML không hợp lệ.");
+                    }
+                    
+                    const workbook = XLSX.utils.book_new();
+
+                    
+                    const playerData = [];
+                    const playerNode = xmlDoc.querySelector('player');
+                    if (playerNode) {
+                        Array.from(playerNode.children).forEach(node => {
+                            if (node.children.length === 0) {
+                                playerData.push({ key: node.tagName, value: node.textContent });
+                            } else {
+                                Array.from(node.children).forEach(childNode => {
+                                    playerData.push({ key: `${node.tagName}_${childNode.tagName}`, value: childNode.textContent });
+                                });
+                            }
+                        });
+                        const playerSheet = XLSX.utils.json_to_sheet(playerData);
+                        XLSX.utils.book_append_sheet(workbook, playerSheet, 'Player');
+                    }
+
+                    
+                    const monstersData = [];
+                    const monsterNodes = xmlDoc.querySelectorAll('monster');
+                    monsterNodes.forEach(node => {
+                        const monster = { id: node.getAttribute('id') };
+                        Array.from(node.children).forEach(child => {
+                            if (child.tagName !== 'specialSkill') {
+                                monster[child.tagName] = child.textContent;
+                            } else {
+                                Array.from(child.children).forEach(skillChild => {
+                                    monster[`specialSkill_${skillChild.tagName}`] = skillChild.textContent;
+                                });
+                            }
+                        });
+                        monstersData.push(monster);
+                    });
+                    if (monstersData.length > 0) {
+                        const monstersSheet = XLSX.utils.json_to_sheet(monstersData);
+                        XLSX.utils.book_append_sheet(workbook, monstersSheet, 'Monsters');
+                    }
+
+                    
+                    const spellsData = [];
+                    xmlDoc.querySelectorAll('spell').forEach(node => {
+                        const spell = { id: node.getAttribute('id') };
+                        Array.from(node.children).forEach(child => {
+                            spell[child.tagName] = child.textContent;
+                        });
+                        spellsData.push(spell);
+                    });
+                    if (spellsData.length > 0) {
+                        const spellsSheet = XLSX.utils.json_to_sheet(spellsData);
+                        XLSX.utils.book_append_sheet(workbook, spellsSheet, 'Spells');
+                    }
+                    
+                    
+                    const imagesData = [];
+                    xmlDoc.querySelectorAll('image').forEach(node => {
+                        const image = { id: node.getAttribute('id') };
+                        Array.from(node.children).forEach(child => {
+                            image[child.tagName] = child.textContent;
+                        });
+                        imagesData.push(image);
+                    });
+                    if (imagesData.length > 0) {
+                        const imagesSheet = XLSX.utils.json_to_sheet(imagesData);
+                        XLSX.utils.book_append_sheet(workbook, imagesSheet, 'Images');
+                    }
+                    
+                    
+                    const inventoryData = [];
+                    xmlDoc.querySelectorAll('inventory item').forEach(node => {
+                        const item = {};
+                        Array.from(node.attributes).forEach(attr => item[attr.name] = attr.value);
+                        inventoryData.push(item);
+                    });
+                    const inventorySheet = XLSX.utils.json_to_sheet(inventoryData);
+                    XLSX.utils.book_append_sheet(workbook, inventorySheet, 'Inventory');
+
+                    xmlStatusDiv.textContent = 'Đã tạo file Excel thành công! Đang tải xuống...';
+                    XLSX.writeFile(workbook, 'game_data_converted.xlsx');
+
+                } catch (error) {
+                    xmlStatusDiv.textContent = `Lỗi: ${error.message}`;
+                }
+            };
+
+            reader.onerror = () => {
+                xmlStatusDiv.textContent = 'Lỗi: Không thể đọc file.';
+            };
+            
+            reader.readAsText(file);
+        });
+
+        
+        convertToXmlBtn.addEventListener('click', () => {
+            if (!excelFileInput.files.length) {
+                xmlStatusDiv.textContent = 'Lỗi: Vui lòng chọn một file Excel trước.';
+                return;
+            }
+            const file = excelFileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    xmlStatusDiv.textContent = 'Đang đọc và phân tích file Excel...';
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    const xmlDoc = document.implementation.createDocument(null, "gameData", null);
+                    const root = xmlDoc.documentElement;
+
+                    
+                    const playerSheet = workbook.Sheets['Player'];
+                    if (playerSheet) {
+                        const playerData = XLSX.utils.sheet_to_json(playerSheet);
+                        const playerNode = xmlDoc.createElement('player');
+                        const configNode = xmlDoc.createElement('custom_sprite_player_config');
+                        
+                        playerData.forEach(row => {
+                            if (row.key.startsWith('custom_sprite_player_config_')) {
+                                const subKey = row.key.replace('custom_sprite_player_config_', '');
+                                const subNode = xmlDoc.createElement(subKey);
+                                subNode.textContent = row.value;
+                                configNode.appendChild(subNode);
+                            } else {
+                                const node = xmlDoc.createElement(row.key);
+                                node.textContent = row.value;
+                                playerNode.appendChild(node);
+                            }
+                        });
+                        if (configNode.children.length > 0) playerNode.appendChild(configNode);
+                        root.appendChild(playerNode);
+                    }
+
+                    
+                    const monstersSheet = workbook.Sheets['Monsters'];
+                    if (monstersSheet) {
+                        const monstersData = XLSX.utils.sheet_to_json(monstersSheet);
+                        const monstersNode = xmlDoc.createElement('monsters');
+                        monstersData.forEach(row => {
+                            const monsterNode = xmlDoc.createElement('monster');
+                            monsterNode.setAttribute('id', row.id);
+                            const skillNode = xmlDoc.createElement('specialSkill');
+                            Object.keys(row).forEach(key => {
+                                if (key === 'id') return;
+                                if (key.startsWith('specialSkill_')) {
+                                    const subKey = key.replace('specialSkill_', '');
+                                    const subNode = xmlDoc.createElement(subKey);
+                                    subNode.textContent = row[key];
+                                    skillNode.appendChild(subNode);
+                                } else {
+                                    const node = xmlDoc.createElement(key);
+                                    node.textContent = row[key];
+                                    monsterNode.appendChild(node);
+                                }
+                            });
+                            if (skillNode.children.length > 0) monsterNode.appendChild(skillNode);
+                            monstersNode.appendChild(monsterNode);
+                        });
+                        root.appendChild(monstersNode);
+                    }
+                    
+                    
+                    const spellsSheet = workbook.Sheets['Spells'];
+                    if (spellsSheet) {
+                        const spellsData = XLSX.utils.sheet_to_json(spellsSheet);
+                        const spellsNode = xmlDoc.createElement('spells');
+                        spellsData.forEach(row => {
+                            const spellNode = xmlDoc.createElement('spell');
+                            spellNode.setAttribute('id', row.id);
+                            Object.keys(row).forEach(key => {
+                                if(key !== 'id'){
+                                    const node = xmlDoc.createElement(key);
+                                    node.textContent = row[key];
+                                    spellNode.appendChild(node);
+                                }
+                            });
+                            spellsNode.appendChild(spellNode);
+                        });
+                        root.appendChild(spellsNode);
+                    }
+                    
+                    
+                    const imagesSheet = workbook.Sheets['Images'];
+                    if (imagesSheet) {
+                        const imagesData = XLSX.utils.sheet_to_json(imagesSheet);
+                        const imagesNode = xmlDoc.createElement('images');
+                        imagesData.forEach(row => {
+                            const imageNode = xmlDoc.createElement('image');
+                            imageNode.setAttribute('id', row.id);
+                            Object.keys(row).forEach(key => {
+                                if(key !== 'id'){
+                                    const node = xmlDoc.createElement(key);
+                                    node.textContent = row[key];
+                                    imageNode.appendChild(node);
+                                }
+                            });
+                            imagesNode.appendChild(imageNode);
+                        });
+                        root.appendChild(imagesNode);
+                    }
+
+                    
+                    const inventoryNode = xmlDoc.createElement('inventory');
+                    root.appendChild(inventoryNode);
+
+                    const serializer = new XMLSerializer();
+                    let xmlString = serializer.serializeToString(xmlDoc);
+
+                    
+                    xmlString = formatXml(xmlString);
+
+                    xmlStatusDiv.textContent = 'Đã tạo file XML thành công! Đang tải xuống...';
+                    
+                    const blob = new Blob([xmlString], { type: 'application/xml' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'game_data_converted.xml';
+                    link.click();
+
+                } catch (error) {
+                    xmlStatusDiv.textContent = `Lỗi: ${error.message}`;
+                    console.error(error);
+                }
+            };
+
+            reader.onerror = () => {
+                xmlStatusDiv.textContent = 'Lỗi: Không thể đọc file.';
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+
+        
+        function formatXml(xml) {
+            let formatted = '', indent= '';
+            const tab = '  ';
+            xml.split(/>\s*</).forEach(node => {
+                if (node.match( /^\/\w/ )) indent = indent.substring(tab.length);
+                formatted += indent + '<' + node + '>\r\n';
+                if (node.match( /^<?\w[^>]*[^\/]$/ )) indent += tab;
+            });
+            return formatted.substring(1, formatted.length - 3);
+        }
+
+    </script>
+	<br><div><button>
+
+<a href=file:///D:/OneDrive/OneDrive%20-%20CMC%20Technology%20&%20Solution/Desktop/del%20angia/1%20ff%20test/FF_test_1_SPA.htm>Link "FF_test_1_SPA.htm"</a href>
+</button><br></div>
+	<br><div><button><a href=file:///D:/OneDrive/OneDrive%20-%20CMC%20Technology%20&%20Solution/Desktop/del%20angia/1%20ff%20test/Index_final.htm>
+Link local final
+</a href>
+<br></button></div>	
+<br><div><button>
+
+<a href=https://ntn852002.github.io/Ricky-my-jrpg-assets/>Link GitHub final</a href>
+<br></button></div>
+</body>
+</html>
