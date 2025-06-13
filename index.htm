@@ -191,6 +191,7 @@
             <button id="d-pad-down" class="d-pad-btn">▼</button>
         </div>
         <div class="game-menu-buttons">
+            <button id="new-map-btn">Bản đồ mới</button>
             <button data-modal="stats-modal" class="modal-trigger">Menu</button>
             <button data-modal="settings-modal" class="modal-trigger">⚙️</button>
         </div>
@@ -258,9 +259,10 @@
                 <button data-modal="image-manager-modal" class="modal-btn modal-trigger">Quản Lý Hình Ảnh</button>
                 <button id="export-game-data-btn" class="modal-btn">Xuất Dữ Liệu</button>
                 <button id="import-game-data-btn" class="modal-btn">Nhập Dữ Liệu</button>
+                <button id="reload-game-data-btn" class="modal-btn">Tải Lại Dữ Liệu</button>
                 <button id="modal-reset-game-btn" class="modal-btn danger">Reset Toàn Bộ Game</button>
             </div>
-            <input type="file" id="import-data-file-input" accept=".csv" style="display: none;">
+            <input type="file" id="import-data-file-input" accept=".xml" style="display: none;">
             </div>
         <div class="modal-buttons"><button class="modal-btn close-modal-btn">Đóng</button></div>
     </div>
@@ -285,7 +287,7 @@
     </div>
 
     <script>
- document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', () => {
 
         // ===================================
         // KHAI BÁO BIẾN VÀ ĐIỀU KHIỂN CHUNG
@@ -304,110 +306,140 @@
         startGameBtn.addEventListener('click', () => {
             introScreen.style.display = 'none';
             gameScreen.style.display = 'flex';
-			// ... (existing code for managers and setupTabs)
+            initializeMainGame();
+        });
 
         // ===================================
-        // NEW: EXPORT/IMPORT DATA LOGIC
+        // LOGIC XUẤT/NHẬP DỮ LIỆU GAME (XML)
         // ===================================
-
-        // Helper function to escape CSV values
-        function escapeCsv(value) {
-            if (value === null || value === undefined) return '';
-            let stringValue = String(value);
-            // If the value contains a comma, double quote, or newline, enclose it in double quotes
-            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-                // Escape double quotes by doubling them
-                stringValue = stringValue.replace(/"/g, '""');
-                return `"${stringValue}"`;
-            }
-            return stringValue;
-        }
-
-        // Helper function to unescape CSV values (basic for now)
-        function unescapeCsv(value) {
-            if (value.startsWith('"') && value.endsWith('"')) {
-                return value.substring(1, value.length - 1).replace(/""/g, '"');
-            }
-            return value;
+        
+        // Helper function for pretty-printing XML
+        function formatXml(xml) {
+            let formatted = '', indent= '';
+            xml.split(/>\s*</).forEach(node => {
+                if (node.match( /^\/\w/ )) indent = indent.substring(2);
+                const line = indent + '<' + node + '>\r\n';
+                formatted += line;
+                if (node.match( /^<?\w[^>]*[^\/]$/ )) indent += '  ';
+            });
+            return formatted.substring(1, formatted.length - 3);
         }
 
         document.getElementById('export-game-data-btn').addEventListener('click', () => {
-            let csvContent = '';
+            const doc = document.implementation.createDocument(null, "gameData", null);
+            const root = doc.documentElement;
 
-            // 1. Player Data
-            csvContent += 'PLAYER_DATA\n';
-            const playerHeader = ['level', 'atk', 'maxHp', 'maxMp', 'battlesWon', 'battlesToNextLevel', 'custom_sprite_player_id', 'custom_sprite_player_config_isSpriteSheet', 'custom_sprite_player_config_frameWidth', 'custom_sprite_player_config_frameHeight', 'custom_sprite_player_config_framesPerRow', 'custom_sprite_player_config_animationRow', 'custom_sprite_player_config_animationSpeed', 'custom_sprite_player_config_totalRows'];
-            csvContent += playerHeader.map(escapeCsv).join(',') + '\n';
+            const createTextElement = (name, text) => {
+                const elem = doc.createElement(name);
+                // Handle null or undefined values to ensure valid XML
+                elem.textContent = text === null || typeof text === 'undefined' ? '' : text;
+                return elem;
+            };
+
+            // 1. Dữ liệu người chơi
+            const playerElement = doc.createElement('player');
             const playerStats = playerDataManager.stats;
             const playerSpriteId = localStorage.getItem('custom_sprite_player_id') || 'player_default';
             const playerConfig = localStorage.getItem('custom_sprite_player_config') ? JSON.parse(localStorage.getItem('custom_sprite_player_config')) : {};
+            
+            playerElement.appendChild(createTextElement('level', playerStats.level));
+            playerElement.appendChild(createTextElement('atk', playerStats.atk));
+            playerElement.appendChild(createTextElement('maxHp', playerStats.maxHp));
+            playerElement.appendChild(createTextElement('maxMp', playerStats.maxMp));
+            playerElement.appendChild(createTextElement('battlesWon', playerStats.battlesWon));
+            playerElement.appendChild(createTextElement('battlesToNextLevel', playerStats.battlesToNextLevel));
+            playerElement.appendChild(createTextElement('custom_sprite_player_id', playerSpriteId));
+            
+            const playerConfigElement = doc.createElement('custom_sprite_player_config');
+            playerConfigElement.appendChild(createTextElement('isSpriteSheet', playerConfig.isSpriteSheet || false));
+            playerConfigElement.appendChild(createTextElement('frameWidth', playerConfig.frameWidth || 16));
+            playerConfigElement.appendChild(createTextElement('frameHeight', playerConfig.frameHeight || 16));
+            playerConfigElement.appendChild(createTextElement('framesPerRow', playerConfig.framesPerRow || 1));
+            playerConfigElement.appendChild(createTextElement('animationRow', playerConfig.animationRow || 0));
+            playerConfigElement.appendChild(createTextElement('animationSpeed', playerConfig.animationSpeed || 100));
+            playerConfigElement.appendChild(createTextElement('totalRows', playerConfig.totalRows || 1));
+            playerElement.appendChild(playerConfigElement);
+            root.appendChild(playerElement);
 
-            const playerRow = [
-                playerStats.level, playerStats.atk, playerStats.maxHp, playerStats.maxMp, playerStats.battlesWon, playerStats.battlesToNextLevel,
-                playerSpriteId,
-                playerConfig.isSpriteSheet || false,
-                playerConfig.frameWidth || 16,
-                playerConfig.frameHeight || 16,
-                playerConfig.framesPerRow || 1,
-                playerConfig.animationRow || 0,
-                playerConfig.animationSpeed || 100,
-                playerConfig.totalRows || 1
-            ];
-            csvContent += playerRow.map(escapeCsv).join(',') + '\n\n';
-
-            // 2. Monster Data
-            csvContent += 'MONSTER_DATA\n';
-            const monsterHeader = ['id', 'name', 'hp', 'atk', 'spriteId', 'specialSkill_name', 'specialSkill_damage', 'specialSkill_chance', 'dropItem_name', 'dropItem_dropRate', 'dropItem_spriteId'];
-            csvContent += monsterHeader.map(escapeCsv).join(',') + '\n';
+            // 2. Dữ liệu quái vật
+            const monstersElement = doc.createElement('monsters');
             monsterManager.monsters.forEach(m => {
-                const row = [
-                    m.id, m.name, m.hp, m.atk, m.spriteId,
-                    m.specialSkill.name, m.specialSkill.damage, m.specialSkill.chance,
-                    m.dropItem ? m.dropItem.name : '', m.dropItem ? m.dropItem.dropRate : '', m.dropItem ? m.dropItem.spriteId : ''
-                ];
-                csvContent += row.map(escapeCsv).join(',') + '\n';
-            });
-            csvContent += '\n';
+                const monsterEl = doc.createElement('monster');
+                monsterEl.setAttribute('id', m.id);
+                monsterEl.appendChild(createTextElement('name', m.name));
+                monsterEl.appendChild(createTextElement('hp', m.hp));
+                monsterEl.appendChild(createTextElement('atk', m.atk));
+                monsterEl.appendChild(createTextElement('spriteId', m.spriteId));
+                
+                const skillEl = doc.createElement('specialSkill');
+                skillEl.appendChild(createTextElement('name', m.specialSkill.name));
+                skillEl.appendChild(createTextElement('damage', m.specialSkill.damage));
+                skillEl.appendChild(createTextElement('chance', m.specialSkill.chance));
+                monsterEl.appendChild(skillEl);
 
-            // 3. Spell Data
-            csvContent += 'SPELL_DATA\n';
-            const spellHeader = ['id', 'name', 'mpCost', 'damage', 'effectColor', 'flashes', 'spriteId', 'spriteFlashes'];
-            csvContent += spellHeader.map(escapeCsv).join(',') + '\n';
+                if (m.dropItem && m.dropItem.name) {
+                    const dropEl = doc.createElement('dropItem');
+                    dropEl.appendChild(createTextElement('name', m.dropItem.name));
+                    dropEl.appendChild(createTextElement('dropRate', m.dropItem.dropRate));
+                    dropEl.appendChild(createTextElement('spriteId', m.dropItem.spriteId));
+                    monsterEl.appendChild(dropEl);
+                }
+                monstersElement.appendChild(monsterEl);
+            });
+            root.appendChild(monstersElement);
+
+            // 3. Dữ liệu phép thuật
+            const spellsElement = doc.createElement('spells');
             spellManager.spells.forEach(s => {
-                const row = [
-                    s.id, s.name, s.mpCost, s.damage, s.effectColor, s.flashes, s.spriteId, s.spriteFlashes
-                ];
-                csvContent += row.map(escapeCsv).join(',') + '\n';
+                const spellEl = doc.createElement('spell');
+                spellEl.setAttribute('id', s.id);
+                spellEl.appendChild(createTextElement('name', s.name));
+                spellEl.appendChild(createTextElement('mpCost', s.mpCost));
+                spellEl.appendChild(createTextElement('damage', s.damage));
+                spellEl.appendChild(createTextElement('effectColor', s.effectColor));
+                spellEl.appendChild(createTextElement('flashes', s.flashes));
+                spellEl.appendChild(createTextElement('spriteId', s.spriteId));
+                spellEl.appendChild(createTextElement('spriteFlashes', s.spriteFlashes));
+                spellsElement.appendChild(spellEl);
             });
-            csvContent += '\n';
-
-            // 4. Image Data
-            csvContent += 'IMAGE_DATA\n';
-            const imageHeader = ['id', 'name', 'url', 'isSpriteSheet', 'frameWidth', 'frameHeight', 'framesPerRow', 'animationRow', 'animationSpeed', 'totalRows'];
-            csvContent += imageHeader.map(escapeCsv).join(',') + '\n';
+            root.appendChild(spellsElement);
+            
+            // 4. Dữ liệu hình ảnh
+            const imagesElement = doc.createElement('images');
             imageManager.images.forEach(img => {
-                const row = [
-                    img.id, img.name, img.url, img.isSpriteSheet, img.frameWidth, img.frameHeight, img.framesPerRow, img.animationRow, img.animationSpeed, img.totalRows
-                ];
-                csvContent += row.map(escapeCsv).join(',') + '\n';
+                const imgEl = doc.createElement('image');
+                imgEl.setAttribute('id', img.id);
+                imgEl.appendChild(createTextElement('name', img.name));
+                imgEl.appendChild(createTextElement('url', img.url));
+                imgEl.appendChild(createTextElement('isSpriteSheet', img.isSpriteSheet));
+                imgEl.appendChild(createTextElement('frameWidth', img.frameWidth));
+                imgEl.appendChild(createTextElement('frameHeight', img.frameHeight));
+                imgEl.appendChild(createTextElement('framesPerRow', img.framesPerRow));
+                imgEl.appendChild(createTextElement('animationRow', img.animationRow));
+                imgEl.appendChild(createTextElement('animationSpeed', img.animationSpeed));
+                imgEl.appendChild(createTextElement('totalRows', img.totalRows));
+                imagesElement.appendChild(imgEl);
             });
-            csvContent += '\n';
+            root.appendChild(imagesElement);
 
-            // 5. Inventory Data
-            csvContent += 'INVENTORY_DATA\n';
-            const inventoryHeader = ['itemName', 'quantity'];
-            csvContent += inventoryHeader.map(escapeCsv).join(',') + '\n';
+            // 5. Dữ liệu túi đồ
+            const inventoryElement = doc.createElement('inventory');
             for (const itemName in inventoryManager.items) {
-                const row = [itemName, inventoryManager.items[itemName]];
-                csvContent += row.map(escapeCsv).join(',') + '\n';
+                const itemEl = doc.createElement('item');
+                itemEl.appendChild(createTextElement('name', itemName));
+                itemEl.appendChild(createTextElement('quantity', inventoryManager.items[itemName]));
+                inventoryElement.appendChild(itemEl);
             }
-            csvContent += '\n';
+            root.appendChild(inventoryElement);
 
-            const BOM = '\uFEFF'; // Byte Order Mark for UTF-8
-            const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const serializer = new XMLSerializer();
+            const xmlString = serializer.serializeToString(doc);
+            const formattedXml = formatXml(xmlString);
+
+            const blob = new Blob([formattedXml], { type: 'application/xml;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'game_data.csv';
+            link.download = 'game_data.xml';
             link.click();
             URL.revokeObjectURL(link.href);
             alert('Dữ liệu game đã được xuất thành công!');
@@ -419,181 +451,179 @@
 
         document.getElementById('import-data-file-input').addEventListener('change', (event) => {
             const file = event.target.files[0];
-            if (!file) {
-                return;
-            }
+            if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = (e) => {
-                const csvContent = e.target.result;
-                try {
-                    const sections = csvContent.split(/\n\s*\n/).filter(s => s.trim() !== ''); // Split by double newline or more whitespace
 
-                    let currentSection = '';
+            reader.onload = (e) => {
+                const xmlContent = e.target.result;
+                try {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
+                    
+                    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                       throw new Error('Lỗi phân tích XML: ' + xmlDoc.getElementsByTagName("parsererror")[0].innerText);
+                    }
+
                     const parsedData = {
-                        playerData: {},
-                        monsters: [],
-                        spells: [],
-                        images: [],
-                        inventory: {}
+                        playerData: {}, monsters: [], spells: [], images: [], inventory: {}
                     };
 
-                    sections.forEach(section => {
-                        const lines = section.trim().split('\n');
-                        const headerLine = lines[0];
+                    const getText = (element, tagName) => {
+                        const node = element.querySelector(tagName);
+                        // Return null if node doesn't exist, otherwise return its content
+                        return node ? node.textContent : null;
+                    };
+                    
+                    // --- 1. Phân tích Dữ liệu Người chơi ---
+                    const playerNode = xmlDoc.querySelector('player');
+                    if (playerNode) {
+                        const playerConfigNode = playerNode.querySelector('custom_sprite_player_config');
+                        let playerConfig = {};
+                        if(playerConfigNode) {
+                            playerConfig = {
+                                isSpriteSheet: getText(playerConfigNode, 'isSpriteSheet') === 'true',
+                                frameWidth: parseInt(getText(playerConfigNode, 'frameWidth')),
+                                frameHeight: parseInt(getText(playerConfigNode, 'frameHeight')),
+                                framesPerRow: parseInt(getText(playerConfigNode, 'framesPerRow')),
+                                animationRow: parseInt(getText(playerConfigNode, 'animationRow')),
+                                animationSpeed: parseInt(getText(playerConfigNode, 'animationSpeed')),
+                                totalRows: parseInt(getText(playerConfigNode, 'totalRows'))
+                            };
+                        }
 
-                        if (headerLine.startsWith('PLAYER_DATA')) {
-                            currentSection = 'PLAYER_DATA';
-                        } else if (headerLine.startsWith('MONSTER_DATA')) {
-                            currentSection = 'MONSTER_DATA';
-                        } else if (headerLine.startsWith('SPELL_DATA')) {
-                            currentSection = 'SPELL_DATA';
-                        } else if (headerLine.startsWith('IMAGE_DATA')) {
-                            currentSection = 'IMAGE_DATA';
-                        } else if (headerLine.startsWith('INVENTORY_DATA')) {
-                            currentSection = 'INVENTORY_DATA';
-                        } else {
-                            // Process actual data lines
-                            if (lines.length < 2) return; // Skip empty sections
+                        parsedData.playerData = {
+                            level: parseInt(getText(playerNode, 'level')),
+                            atk: parseInt(getText(playerNode, 'atk')),
+                            maxHp: parseInt(getText(playerNode, 'maxHp')),
+                            maxMp: parseInt(getText(playerNode, 'maxMp')),
+                            battlesWon: parseInt(getText(playerNode, 'battlesWon')),
+                            battlesToNextLevel: parseInt(getText(playerNode, 'battlesToNextLevel')),
+                            custom_sprite_player_id: getText(playerNode, 'custom_sprite_player_id'),
+                            custom_sprite_player_config: playerConfig
+                        };
+                    }
+                    
+                    // --- 2. Phân tích Dữ liệu Quái vật ---
+                    xmlDoc.querySelectorAll('monsters > monster').forEach(mNode => {
+                         const skillNode = mNode.querySelector('specialSkill');
+                         const dropNode = mNode.querySelector('dropItem');
+                         parsedData.monsters.push({
+                            id: mNode.getAttribute('id'),
+                            name: getText(mNode, 'name'),
+                            hp: parseInt(getText(mNode, 'hp')),
+                            atk: parseInt(getText(mNode, 'atk')),
+                            spriteId: getText(mNode, 'spriteId'),
+                            specialSkill: {
+                                name: getText(skillNode, 'name'),
+                                damage: parseInt(getText(skillNode, 'damage')),
+                                chance: parseFloat(getText(skillNode, 'chance'))
+                            },
+                            dropItem: dropNode ? {
+                                name: getText(dropNode, 'name'),
+                                dropRate: parseFloat(getText(dropNode, 'dropRate')),
+                                spriteId: getText(dropNode, 'spriteId') || null
+                            } : null
+                         });
+                    });
+                    
+                    // --- 3. Phân tích Dữ liệu Phép thuật ---
+                    xmlDoc.querySelectorAll('spells > spell').forEach(sNode => {
+                        parsedData.spells.push({
+                            id: sNode.getAttribute('id'),
+                            name: getText(sNode, 'name'),
+                            mpCost: parseInt(getText(sNode, 'mpCost')),
+                            damage: parseInt(getText(sNode, 'damage')),
+                            effectColor: getText(sNode, 'effectColor'),
+                            flashes: parseInt(getText(sNode, 'flashes')),
+                            spriteId: getText(sNode, 'spriteId') || null,
+                            spriteFlashes: parseInt(getText(sNode, 'spriteFlashes'))
+                        });
+                    });
 
-                            const header = lines[0].split(',').map(unescapeCsv);
-                            for (let i = 1; i < lines.length; i++) {
-                                const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(unescapeCsv); // Split by comma outside quotes
-                                if (values.length !== header.length) {
-                                     console.warn(`Skipping malformed row in ${currentSection}: "${lines[i]}"`);
-                                     continue;
-                                }
+                    // --- 4. Phân tích Dữ liệu Hình ảnh ---
+                    xmlDoc.querySelectorAll('images > image').forEach(iNode => {
+                        parsedData.images.push({
+                            id: iNode.getAttribute('id'),
+                            name: getText(iNode, 'name'),
+                            url: getText(iNode, 'url'),
+                            isSpriteSheet: getText(iNode, 'isSpriteSheet') === 'true',
+                            frameWidth: parseInt(getText(iNode, 'frameWidth')),
+                            frameHeight: parseInt(getText(iNode, 'frameHeight')),
+                            framesPerRow: parseInt(getText(iNode, 'framesPerRow')),
+                            animationRow: parseInt(getText(iNode, 'animationRow')),
+                            animationSpeed: parseInt(getText(iNode, 'animationSpeed')),
+                            totalRows: parseInt(getText(iNode, 'totalRows'))
+                        });
+                    });
 
-                                const rowData = {};
-                                header.forEach((key, index) => {
-                                    rowData[key] = values[index];
-                                });
-
-                                if (currentSection === 'PLAYER_DATA') {
-                                    parsedData.playerData = {
-                                        level: parseInt(rowData.level),
-                                        atk: parseInt(rowData.atk),
-                                        maxHp: parseInt(rowData.maxHp),
-                                        maxMp: parseInt(rowData.maxMp),
-                                        battlesWon: parseInt(rowData.battlesWon),
-                                        battlesToNextLevel: parseInt(rowData.battlesToNextLevel),
-                                        custom_sprite_player_id: rowData.custom_sprite_player_id,
-                                        custom_sprite_player_config: {
-                                            isSpriteSheet: rowData.custom_sprite_player_config_isSpriteSheet === 'true',
-                                            frameWidth: parseInt(rowData.custom_sprite_player_config_frameWidth),
-                                            frameHeight: parseInt(rowData.custom_sprite_player_config_frameHeight),
-                                            framesPerRow: parseInt(rowData.custom_sprite_player_config_framesPerRow),
-                                            animationRow: parseInt(rowData.custom_sprite_player_config_animationRow),
-                                            animationSpeed: parseInt(rowData.custom_sprite_player_config_animationSpeed),
-                                            totalRows: parseInt(rowData.custom_sprite_player_config_totalRows)
-                                        }
-                                    };
-                                } else if (currentSection === 'MONSTER_DATA') {
-                                    parsedData.monsters.push({
-                                        id: rowData.id,
-                                        name: rowData.name,
-                                        hp: parseInt(rowData.hp),
-                                        atk: parseInt(rowData.atk),
-                                        spriteId: rowData.spriteId,
-                                        specialSkill: {
-                                            name: rowData.specialSkill_name,
-                                            damage: parseInt(rowData.specialSkill_damage),
-                                            chance: parseFloat(rowData.specialSkill_chance)
-                                        },
-                                        dropItem: {
-                                            name: rowData.dropItem_name,
-                                            dropRate: parseFloat(rowData.dropItem_dropRate),
-                                            spriteId: rowData.dropItem_spriteId || null
-                                        }
-                                    });
-                                } else if (currentSection === 'SPELL_DATA') {
-                                    parsedData.spells.push({
-                                        id: rowData.id,
-                                        name: rowData.name,
-                                        mpCost: parseInt(rowData.mpCost),
-                                        damage: parseInt(rowData.damage),
-                                        effectColor: rowData.effectColor,
-                                        flashes: parseInt(rowData.flashes),
-                                        spriteId: rowData.spriteId || null,
-                                        spriteFlashes: parseInt(rowData.spriteFlashes)
-                                    });
-                                } else if (currentSection === 'IMAGE_DATA') {
-                                    parsedData.images.push({
-                                        id: rowData.id,
-                                        name: rowData.name,
-                                        url: rowData.url,
-                                        isSpriteSheet: rowData.isSpriteSheet === 'true',
-                                        frameWidth: parseInt(rowData.frameWidth),
-                                        frameHeight: parseInt(rowData.frameHeight),
-                                        framesPerRow: parseInt(rowData.framesPerRow),
-                                        animationRow: parseInt(rowData.animationRow),
-                                        animationSpeed: parseInt(rowData.animationSpeed),
-                                        totalRows: parseInt(rowData.totalRows)
-                                    });
-                                } else if (currentSection === 'INVENTORY_DATA') {
-                                    parsedData.inventory[rowData.itemName] = parseInt(rowData.quantity);
-                                }
-                            }
+                    // --- 5. Phân tích Dữ liệu Túi đồ ---
+                    xmlDoc.querySelectorAll('inventory > item').forEach(iNode => {
+                        const itemName = getText(iNode, 'name');
+                        const quantity = parseInt(getText(iNode, 'quantity'));
+                        if (itemName) {
+                           parsedData.inventory[itemName] = quantity;
                         }
                     });
 
-                    // Clear existing data and load new data
-                    localStorage.removeItem('jrpg_playerData');
-                    localStorage.removeItem('jrpg_monsters');
-                    localStorage.removeItem('jrpg_spells');
-                    localStorage.removeItem('jrpg_images');
-                    localStorage.removeItem('jrpg_inventory');
-                    localStorage.removeItem('custom_sprite_player_id');
-                    localStorage.removeItem('custom_sprite_player_config');
+                    // --- LOGIC HỢP NHẤT VÀ CẬP NHẬT DỮ LIỆU ---
 
-                    // Apply imported data
+                    function mergeData(existingData, newData, key) {
+                        const dataMap = new Map(existingData.map(item => [item[key], item]));
+                        newData.forEach(item => {
+                            dataMap.set(item[key], item); // Add or update if key exists
+                        });
+                        return Array.from(dataMap.values());
+                    }
+
                     if (parsedData.playerData && Object.keys(parsedData.playerData).length > 0) {
-                        localStorage.setItem('jrpg_playerData', JSON.stringify(parsedData.playerData));
-                        if (parsedData.playerData.custom_sprite_player_id) {
-                            localStorage.setItem('custom_sprite_player_id', parsedData.playerData.custom_sprite_player_id);
+                        const { custom_sprite_player_id, custom_sprite_player_config, ...statsToSave } = parsedData.playerData;
+                        
+                        const cleanedStats = Object.fromEntries(Object.entries(statsToSave).filter(([_, v]) => v !== null && !isNaN(v)));
+
+                        localStorage.setItem('jrpg_playerData', JSON.stringify(cleanedStats));
+                        if (custom_sprite_player_id) {
+                            localStorage.setItem('custom_sprite_player_id', custom_sprite_player_id);
                         }
-                        if (parsedData.playerData.custom_sprite_player_config) {
-                             localStorage.setItem('custom_sprite_player_config', JSON.stringify(parsedData.playerData.custom_sprite_player_config));
+                        if (custom_sprite_player_config) {
+                             localStorage.setItem('custom_sprite_player_config', JSON.stringify(custom_sprite_player_config));
                         }
                     }
 
                     if (parsedData.monsters.length > 0) {
-                        localStorage.setItem('jrpg_monsters', JSON.stringify(parsedData.monsters));
-                    } else { // If imported data is empty, revert to default monsters
-                        localStorage.setItem('jrpg_monsters', JSON.stringify(monsterManager.defaultMonsters));
+                        const existingMonsters = JSON.parse(localStorage.getItem('jrpg_monsters')) || [];
+                        const updatedMonsters = mergeData(existingMonsters, parsedData.monsters, 'id');
+                        localStorage.setItem('jrpg_monsters', JSON.stringify(updatedMonsters));
                     }
 
                     if (parsedData.spells.length > 0) {
-                        localStorage.setItem('jrpg_spells', JSON.stringify(parsedData.spells));
-                    } else { // If imported data is empty, revert to default spells
-                        localStorage.setItem('jrpg_spells', JSON.stringify(spellManager.defaultSpells));
+                        const existingSpells = JSON.parse(localStorage.getItem('jrpg_spells')) || [];
+                        const updatedSpells = mergeData(existingSpells, parsedData.spells, 'id');
+                        localStorage.setItem('jrpg_spells', JSON.stringify(updatedSpells));
                     }
 
                     if (parsedData.images.length > 0) {
-                        localStorage.setItem('jrpg_images', JSON.stringify(parsedData.images));
-                    } else { // If imported data is empty, revert to default images
-                        localStorage.setItem('jrpg_images', JSON.stringify(imageManager.defaultImages));
+                        const existingImages = JSON.parse(localStorage.getItem('jrpg_images')) || [];
+                        const updatedImages = mergeData(existingImages, parsedData.images, 'id');
+                        localStorage.setItem('jrpg_images', JSON.stringify(updatedImages));
                     }
 
                     if (Object.keys(parsedData.inventory).length > 0) {
-                        localStorage.setItem('jrpg_inventory', JSON.stringify(parsedData.inventory));
-                    } else {
-                        localStorage.setItem('jrpg_inventory', JSON.stringify({})); // Ensure it's an empty object if no items
+                        const existingInventory = JSON.parse(localStorage.getItem('jrpg_inventory')) || {};
+                        const updatedInventory = { ...existingInventory, ...parsedData.inventory };
+                        localStorage.setItem('jrpg_inventory', JSON.stringify(updatedInventory));
                     }
 
-                    alert('Dữ liệu game đã được nhập thành công! Vui lòng tải lại trang để áp dụng thay đổi.');
+                    alert('Dữ liệu game đã được nhập và hợp nhất thành công! Vui lòng tải lại trang để áp dụng thay đổi.');
                     location.reload();
 
                 } catch (error) {
-                    console.error('Lỗi khi đọc file CSV:', error);
-                    alert('Lỗi khi nhập dữ liệu. Vui lòng kiểm tra định dạng file CSV.');
+                    console.error('Lỗi khi đọc file XML:', error);
+                    alert('Lỗi khi nhập dữ liệu. Vui lòng kiểm tra định dạng file XML. Details: ' + error.message);
                 }
             };
+            
             reader.readAsText(file);
-        });
-
-        // ... (rest of your initializeMainGame function and other scripts)
-            initializeMainGame();
         });
 
         // ===================================
@@ -625,11 +655,6 @@
         const spellManager = { spells: [], defaultSpells: [ { id: 'ice', name: 'Băng', mpCost: 2, damage: 10, effectColor: '#00ffff', flashes: 3, spriteId: null, spriteFlashes: 0 }, { id: 'fire', name: 'Lửa', mpCost: 3, damage: 15, effectColor: '#ff0000', flashes: 2, spriteId: null, spriteFlashes: 0 } ], load() { const savedSpells = localStorage.getItem('jrpg_spells'); this.spells = savedSpells ? JSON.parse(savedSpells) : [...this.defaultSpells]; this.spells.forEach(s => { if (!s.id) s.id = s.name; }); }, save() { localStorage.setItem('jrpg_spells', JSON.stringify(this.spells)); }, add(spellData) { if (this.spells.find(s => s.name === spellData.name)) { alert('Lỗi: Tên phép thuật đã tồn tại.'); return false; } this.spells.push(spellData); this.save(); return true; }, update(originalId, newData) { const spellIndex = this.spells.findIndex(s => s.id === originalId); if (spellIndex === -1) return false; if (newData.name !== this.spells[spellIndex].name && this.spells.some(s => s.name === newData.name)) { alert('Lỗi: Tên phép thuật mới đã tồn tại.'); return false; } this.spells[spellIndex] = { ...this.spells[spellIndex], ...newData, id: newData.name }; this.save(); return true; }, delete(spellId) { this.spells = this.spells.filter(s => s.id !== spellId); this.save(); } };
         const inventoryManager = { items: {}, load() { const savedInventory = localStorage.getItem('jrpg_inventory'); this.items = savedInventory ? JSON.parse(savedInventory) : {}; }, save() { localStorage.setItem('jrpg_inventory', JSON.stringify(this.items)); }, addItem(itemName, quantity = 1) { if (this.items[itemName]) { this.items[itemName] += quantity; } else { this.items[itemName] = quantity; } this.save(); } };
 
-        // ===================================
-        // BẮT ĐẦU THAY ĐỔI TẠI ĐÂY
-        // ===================================
-
-        // NEW: Image Manager
         const imageManager = {
             images: [],
             defaultImages: [
@@ -641,7 +666,6 @@
             load() {
                 const savedImages = localStorage.getItem('jrpg_images');
                 this.images = savedImages ? JSON.parse(savedImages) : [...this.defaultImages];
-                // Ensure all loaded images have default animation properties if missing
                 this.images.forEach(img => {
                     if (img.isSpriteSheet === undefined) img.isSpriteSheet = false;
                     if (img.frameWidth === undefined) img.frameWidth = 16;
@@ -684,27 +708,22 @@
                 return true;
             },
             delete(imageId) {
-                // Prevent deleting default images or images currently in use
                 if (this.defaultImages.some(img => img.id === imageId)) {
                     alert('Không thể xóa hình ảnh mặc định.');
                     return;
                 }
-                // Check if any monster uses this spriteId
                 if (monsterManager.monsters.some(m => m.spriteId === imageId)) {
                     alert('Không thể xóa hình ảnh này vì nó đang được sử dụng bởi một quái vật.');
                     return;
                 }
-                // Check if any spell uses this spriteId
                 if (spellManager.spells.some(s => s.spriteId === imageId)) {
                     alert('Không thể xóa hình ảnh này vì nó đang được sử dụng bởi một phép thuật.');
                     return;
                 }
-                // Check if player uses this spriteId
                 if (localStorage.getItem('custom_sprite_player_id') === imageId) {
                     alert('Không thể xóa hình ảnh này vì nó đang được sử dụng làm hình ảnh nhân vật chính.');
                     return;
                 }
-
 
                 this.images = this.images.filter(img => img.id !== imageId);
                 this.save();
@@ -714,21 +733,10 @@
             }
         };
 
-        // GLOBAL CONFIG FOR PLAYER SPRITE ANIMATION (if it's a sprite sheet)
         let playerSpriteConfig = {
-            isSpriteSheet: false,
-            frameWidth: 16,     // Default frame width for general sprites
-            frameHeight: 16,    // Default frame height for general sprites
-            framesPerRow: 1,    // Number of frames in a row
-            animationRow: 0,    // Which row to animate (0-indexed)
-            animationSpeed: 100, // Milliseconds per frame
-            currentFrame: 0,
-            lastFrameTime: 0,
-            totalRows: 1         // Total number of rows in the spritesheet
+            isSpriteSheet: false, frameWidth: 16, frameHeight: 16, framesPerRow: 1, animationRow: 0, animationSpeed: 100, currentFrame: 0, lastFrameTime: 0, totalRows: 1
         };
 
-        // Modified handleSpriteInput to directly use imageManager data
-        // This function is now simplified as it just gets a URL for internal use
         function getImageUrlFromFileOrUrl(urlInput, fileInput, callback) {
             const url = urlInput.value.trim();
             const file = fileInput.files[0];
@@ -747,15 +755,14 @@
         }
 
         modalTriggers.forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const modalId = btn.dataset.modal; const modal = document.getElementById(modalId); if(modal) { allModals.forEach(m => m.style.display = 'none'); modal.style.display = 'flex';
-            if (modalId === 'customize-modal') customizeModal.init(); // NEW: Initialize customize modal dropdown
+            if (modalId === 'customize-modal') customizeModal.init();
             if (modalId === 'monster-modal') monsterModal.renderList();
             if (modalId === 'spell-modal') spellModal.renderList();
-            if (modalId === 'image-manager-modal') imageManagerModal.renderList(); // NEW: Render image list
+            if (modalId === 'image-manager-modal') imageManagerModal.renderList();
             if (modalId === 'stats-modal') { document.querySelector('#stats-modal .tab-btn[data-tab="tab-char-info"]').click(); }
         }}));
         closeModalBtns.forEach(btn => btn.addEventListener('click', () => { btn.closest('.modal').style.display = 'none'; }));
 
-        // MODIFIED: Customize Player Modal logic
         const customizeModal = {
             playerSpriteSelect: document.getElementById('player-sprite-selection'),
             init() {
@@ -781,7 +788,7 @@
             const selectedSprite = imageManager.getImageById(selectedSpriteId);
 
             if (selectedSprite) {
-                localStorage.setItem('custom_sprite_player_id', selectedSprite.id); // Save ID
+                localStorage.setItem('custom_sprite_player_id', selectedSprite.id);
                 localStorage.setItem('custom_sprite_player_config', JSON.stringify({
                     isSpriteSheet: selectedSprite.isSpriteSheet,
                     frameWidth: selectedSprite.frameWidth,
@@ -801,7 +808,7 @@
             localStorage.removeItem('custom_sprite_player_id');
             localStorage.removeItem('custom_sprite_player_config');
             alert('Đã reset. Tải lại trang để thấy thay đổi.');
-            customizeModal.init(); // Re-populate select after reset
+            customizeModal.init();
         });
 
         document.getElementById('modal-reset-game-btn').addEventListener('click', () => { if (confirm('Bạn có chắc muốn reset toàn bộ dữ liệu game?')) { localStorage.clear(); alert('Đã reset game! Trang sẽ được tải lại.'); location.reload(); } });
@@ -830,7 +837,7 @@
                     };
                     this.listEl.appendChild(li);
                 });
-                this.renderAddForm(); // Default to add form
+                this.renderAddForm();
                 addLi.classList.add('selected');
             },
             renderDetails(monster) {
@@ -921,11 +928,7 @@
                     }
 
                     const newMonster = {
-                        id: name,
-                        name,
-                        hp,
-                        atk,
-                        spriteId: spriteId,
+                        id: name, name, hp, atk, spriteId: spriteId,
                         specialSkill: { name: skillName, damage: skillDamage, chance: skillChance },
                         dropItem: { name: dropName, dropRate: (dropName && !isNaN(dropRate)) ? dropRate : 0, spriteId: dropSpriteId || null }
                     };
@@ -1025,7 +1028,7 @@
                     };
                     this.listEl.appendChild(li);
                 });
-                this.renderAddForm(); // Default to add form
+                this.renderAddForm();
                 addLi.classList.add('selected');
             },
             renderDetails(spell) {
@@ -1085,19 +1088,12 @@
                     }
 
                     const newSpell = {
-                        id: name, // Using name as ID
-                        name,
-                        mpCost,
-                        damage,
-                        effectColor,
-                        flashes,
-                        spriteId,
-                        spriteFlashes
+                        id: name, name, mpCost, damage, effectColor, flashes, spriteId, spriteFlashes
                     };
                     if (spellManager.add(newSpell)) {
                         alert('Đã thêm phép thuật!');
                         this.renderList();
-                        menuManager.populateMagicMenu(); // Update magic menu in game
+                        menuManager.populateMagicMenu();
                     }
                 };
             },
@@ -1139,13 +1135,12 @@
                         alert('Đã cập nhật!');
                         this.renderList();
                         this.renderDetails(spellManager.spells.find(s => s.id === updatedData.name));
-                        menuManager.populateMagicMenu(); // Update magic menu in game
+                        menuManager.populateMagicMenu();
                     }
                 };
             }
         };
 
-        // NEW: Image Manager Modal Implementation
         const imageManagerModal = {
             listEl: document.getElementById('image-list'),
             detailsEl: document.getElementById('image-details-panel'),
@@ -1172,7 +1167,7 @@
                     };
                     this.listEl.appendChild(li);
                 });
-                this.renderAddForm(); // Default to add form
+                this.renderAddForm();
                 addLi.classList.add('selected');
             },
             renderDetails(image) {
@@ -1187,8 +1182,8 @@
                     ${image.isSpriteSheet ? `
                         <p><strong>Rộng Khung:</strong> ${image.frameWidth}px</p>
                         <p><strong>Cao Khung:</strong> ${image.frameHeight}px</p>
-                        <p><strong>Khung mỗi dòng:</strong> ${image.framesPerRow}</p>
-                        <p><strong>Dòng hoạt ảnh:</strong> ${image.animationRow} (0-indexed)</p>
+                        <p><strong>Số frame của hoạt ảnh:</strong> ${image.framesPerRow}</p>
+                        <p><strong>Dòng hoạt ảnh thứ mấy:</strong> ${image.animationRow} (0-indexed)</p>
                         <p><strong>Tốc độ hoạt ảnh:</strong> ${image.animationSpeed}ms/khung</p>
                         <p><strong>Tổng số dòng:</strong> ${image.totalRows}</p>
                     ` : ''}
@@ -1217,10 +1212,10 @@
                     <div id="new-sprite-sheet-config" style="display: none;">
                         <div class="input-group"><label>Rộng Khung (px):</label><input type="number" id="new-image-frame-width" value="16" min="1"></div>
                         <div class="input-group"><label>Cao Khung (px):</label><input type="number" id="new-image-frame-height" value="16" min="1"></div>
-                        <div class="input-group"><label>Khung mỗi dòng:</label><input type="number" id="new-image-frames-per-row" value="1" min="1"></div>
-                        <div class="input-group"><label>Dòng hoạt ảnh (0-indexed):</label><input type="number" id="new-image-animation-row" value="0" min="0"></div>
+                        <div class="input-group"><label>Frame mỗi dòng:</label><input type="number" id="new-image-frames-per-row" value="1" min="1"></div>
+                        <div class="input-group"><label>Dòng hoạt ảnh thứ (0-indexed):</label><input type="number" id="new-image-animation-row" value="0" min="0"></div>
                         <div class="input-group"><label>Tốc độ hoạt ảnh (ms/khung):</label><input type="number" id="new-image-animation-speed" value="100" min="1"></div>
-                        <div class="input-group"><label>Tổng số dòng (ước tính):</label><input type="number" id="new-image-total-rows" value="1" min="1"></div>
+                        <div class="input-group"><label>Tổng số dòng hoạt ảnh(ước tính):</label><input type="number" id="new-image-total-rows" value="1" min="1"></div>
                     </div>
                     <div class="modal-buttons"><button id="save-new-image-btn" class="modal-btn primary">Lưu</button></div>
                 `;
@@ -1261,21 +1256,15 @@
                                 return;
                             }
                             const newImage = {
-                                id: id,
-                                name: name,
-                                url: spriteUrl,
-                                isSpriteSheet: isSpriteSheet,
-                                frameWidth: isSpriteSheet ? frameWidth : 16,
-                                frameHeight: isSpriteSheet ? frameHeight : 16,
-                                framesPerRow: isSpriteSheet ? framesPerRow : 1,
-                                animationRow: isSpriteSheet ? animationRow : 0,
-                                animationSpeed: isSpriteSheet ? animationSpeed : 100,
-                                totalRows: isSpriteSheet ? totalRows : 1
+                                id: id, name: name, url: spriteUrl, isSpriteSheet: isSpriteSheet,
+                                frameWidth: isSpriteSheet ? frameWidth : 16, frameHeight: isSpriteSheet ? frameHeight : 16,
+                                framesPerRow: isSpriteSheet ? framesPerRow : 1, animationRow: isSpriteSheet ? animationRow : 0,
+                                animationSpeed: isSpriteSheet ? animationSpeed : 100, totalRows: isSpriteSheet ? totalRows : 1
                             };
                             if (imageManager.add(newImage)) {
                                 alert('Đã thêm hình ảnh!');
                                 this.renderList();
-                                customizeModal.populateSpriteSelect(); // Update player sprite dropdown
+                                customizeModal.populateSpriteSelect();
                             }
                         }
                     );
@@ -1293,10 +1282,10 @@
                     <div id="edit-sprite-sheet-config" style="display: ${image.isSpriteSheet ? 'block' : 'none'};">
                         <div class="input-group"><label>Rộng Khung (px):</label><input type="number" id="edit-image-frame-width" value="${image.frameWidth}" min="1"></div>
                         <div class="input-group"><label>Cao Khung (px):</label><input type="number" id="edit-image-frame-height" value="${image.frameHeight}" min="1"></div>
-                        <div class="input-group"><label>Khung mỗi dòng:</label><input type="number" id="edit-image-frames-per-row" value="${image.framesPerRow}" min="1"></div>
-                        <div class="input-group"><label>Dòng hoạt ảnh (0-indexed):</label><input type="number" id="edit-image-animation-row" value="${image.animationRow}" min="0"></div>
+                        <div class="input-group"><label>Frame mỗi dòng:</label><input type="number" id="edit-image-frames-per-row" value="${image.framesPerRow}" min="1"></div>
+                        <div class="input-group"><label>Dòng hoạt ảnh thứ (0-indexed):</label><input type="number" id="edit-image-animation-row" value="${image.animationRow}" min="0"></div>
                         <div class="input-group"><label>Tốc độ hoạt ảnh (ms/khung):</label><input type="number" id="edit-image-animation-speed" value="${image.animationSpeed}" min="1"></div>
-                        <div class="input-group"><label>Tổng số dòng (ước tính):</label><input type="number" id="edit-image-total-rows" value="${image.totalRows}" min="1"></div>
+                        <div class="input-group"><label>Tổng số trong ảnh để làm hoạt ảnh(ước tính):</label><input type="number" id="edit-image-total-rows" value="${image.totalRows}" min="1"></div>
                     </div>
                     <div class="modal-buttons">
                         <button id="cancel-edit-btn" class="modal-btn">Hủy</button>
@@ -1328,14 +1317,14 @@
                         document.getElementById('edit-image-url'),
                         document.getElementById('edit-image-file'),
                         (newSpriteUrl) => {
-                            if (newSpriteUrl) updatedData.url = newSpriteUrl; // Only update URL if new one is provided
-                            else updatedData.url = image.url; // Keep existing URL if no new file/url
+                            if (newSpriteUrl) updatedData.url = newSpriteUrl;
+                            else updatedData.url = image.url;
 
                             if (imageManager.update(originalId, updatedData)) {
                                 alert('Đã cập nhật!');
                                 this.renderList();
-                                this.renderDetails(imageManager.getImageById(updatedData.id)); // Re-render details with potentially new ID
-                                customizeModal.populateSpriteSelect(); // Update player sprite dropdown
+                                this.renderDetails(imageManager.getImageById(updatedData.id));
+                                customizeModal.populateSpriteSelect();
                             }
                         }
                     );
@@ -1352,7 +1341,7 @@
         monsterManager.load();
         spellManager.load();
         inventoryManager.load();
-        imageManager.load(); // NEW: Load image data
+        imageManager.load();
         setupTabs();
 
         // ===================================
@@ -1364,9 +1353,13 @@
             let gameState = 'world', battleState = '', gameStarted = false, battleBackgroundColor = '#333', currentAnimation = null, enemyUnits = [], turnOrder = [], currentTurnIndex = 0, selectedTargetIndex = 0, pendingPlayerAction = null;
             const keys = {};
 
+            // --- NEW CODE: Get references to new buttons ---
+            const newMapBtn = document.getElementById('new-map-btn');
+            const reloadDataBtn = document.getElementById('reload-game-data-btn');
+
             const spriteManager = {
                 spriteData: {},
-                defaultPlayerDataId: 'player_default', // Use ID from imageManager
+                defaultPlayerDataId: 'player_default',
                 loadAll(callback) {
                     const playerAssetId = localStorage.getItem('custom_sprite_player_id') || this.defaultPlayerDataId;
                     const playerSpriteInfo = imageManager.getImageById(playerAssetId);
@@ -1376,55 +1369,27 @@
                         Object.assign(playerSpriteConfig, JSON.parse(playerConfig));
                     } else if (playerSpriteInfo) {
                         Object.assign(playerSpriteConfig, {
-                            isSpriteSheet: playerSpriteInfo.isSpriteSheet,
-                            frameWidth: playerSpriteInfo.frameWidth,
-                            frameHeight: playerSpriteInfo.frameHeight,
-                            framesPerRow: playerSpriteInfo.framesPerRow,
-                            animationRow: playerSpriteInfo.animationRow,
-                            animationSpeed: playerSpriteInfo.animationSpeed,
-                            totalRows: playerSpriteInfo.totalRows
+                            isSpriteSheet: playerSpriteInfo.isSpriteSheet, frameWidth: playerSpriteInfo.frameWidth, frameHeight: playerSpriteInfo.frameHeight,
+                            framesPerRow: playerSpriteInfo.framesPerRow, animationRow: playerSpriteInfo.animationRow,
+                            animationSpeed: playerSpriteInfo.animationSpeed, totalRows: playerSpriteInfo.totalRows
                         });
                     }
 
-                    const assetsToLoad = {
-                        [playerAssetId]: playerSpriteInfo ? playerSpriteInfo.url : imageManager.getImageById(this.defaultPlayerDataId).url,
-                    };
-
-                    // Load monster sprites based on spriteId
-                    monsterManager.monsters.forEach(m => {
-                        const img = imageManager.getImageById(m.spriteId);
-                        if (img) assetsToLoad[m.spriteId] = img.url;
-                    });
-                    // Load spell sprites based on spriteId
-                    spellManager.spells.forEach(s => {
-                        if (s.spriteId) {
-                            const img = imageManager.getImageById(s.spriteId);
-                            if (img) assetsToLoad[s.spriteId] = img.url;
-                        }
-                    });
-                    // Load item sprites based on spriteId if they exist in monster drops
-                    monsterManager.monsters.forEach(m => {
-                        if (m.dropItem && m.dropItem.spriteId) {
-                            const img = imageManager.getImageById(m.dropItem.spriteId);
-                            if (img) assetsToLoad[m.dropItem.spriteId] = img.url;
-                        }
-                    });
-
+                    const assetsToLoad = { [playerAssetId]: playerSpriteInfo ? playerSpriteInfo.url : imageManager.getImageById(this.defaultPlayerDataId).url, };
+                    monsterManager.monsters.forEach(m => { const img = imageManager.getImageById(m.spriteId); if (img) assetsToLoad[m.spriteId] = img.url; });
+                    spellManager.spells.forEach(s => { if (s.spriteId) { const img = imageManager.getImageById(s.spriteId); if (img) assetsToLoad[s.spriteId] = img.url; } });
+                    monsterManager.monsters.forEach(m => { if (m.dropItem && m.dropItem.spriteId) { const img = imageManager.getImageById(m.dropItem.spriteId); if (img) assetsToLoad[m.dropItem.spriteId] = img.url; } });
 
                     const assetKeys = Object.keys(assetsToLoad);
                     let assetsLeft = assetKeys.length;
-
                     if (assetsLeft === 0) { if(callback) callback(); return; }
-
-                    const onAssetLoaded = () => {
-                        if (--assetsLeft === 0) if(callback) callback();
-                    };
+                    const onAssetLoaded = () => { if (--assetsLeft === 0) if(callback) callback(); };
 
                     assetKeys.forEach(key => {
                         const url = assetsToLoad[key];
                         if (!url) { onAssetLoaded(); return; }
 
-                        if (url.startsWith('data:image/gif') || url.endsWith('.gif')) { // Check for .gif extension too
+                        if (url.startsWith('data:image/gif') || url.endsWith('.gif')) {
                             const offscreenCanvas = document.createElement('canvas');
                             this.spriteData[key] = { type: 'gif', asset: offscreenCanvas, loaded: false };
                             const sprite = this.spriteData[key];
@@ -1442,44 +1407,32 @@
                             this.spriteData[key] = { type: 'static', asset: new Image(), loaded: false };
                             const sprite = this.spriteData[key];
                             sprite.asset.crossOrigin = "Anonymous";
-                            sprite.asset.onload = () => {
-                                sprite.loaded = true;
-                                onAssetLoaded();
-                            };
-                            sprite.asset.onerror = () => {
-                                console.error(`Không thể tải hình ảnh: ${url}`);
-                                sprite.loaded = false;
-                                onAssetLoaded();
-                            };
+                            sprite.asset.onload = () => { sprite.loaded = true; onAssetLoaded(); };
+                            sprite.asset.onerror = () => { console.error(`Không thể tải hình ảnh: ${url}`); sprite.loaded = false; onAssetLoaded(); };
                             sprite.asset.src = url;
                         }
                     });
                 },
-                draw(key, x, y, width, height) {
+                draw(key, x, y, width, height, unit = null) {
                     const sprite = this.spriteData[key];
                     if (sprite && sprite.loaded) {
-                        // Determine if this specific key (e.g., player) has sprite sheet config
-                        let currentConfig = null;
-                        if (key === localStorage.getItem('custom_sprite_player_id') || key === this.defaultPlayerDataId) {
-                            currentConfig = playerSpriteConfig;
-                        } else {
-                            // For monsters/spells, get their specific config from imageManager if it's a sprite sheet
-                            const imageInfo = imageManager.getImageById(key);
-                            if (imageInfo && imageInfo.isSpriteSheet) {
-                                currentConfig = imageInfo; // Using imageInfo directly as config for non-player sprites
-                            }
-                        }
+                        const imageInfo = imageManager.getImageById(key);
 
-                        if (currentConfig && currentConfig.isSpriteSheet) {
-                            const { frameWidth, frameHeight, currentFrame, animationRow } = currentConfig;
-                            const sx = currentFrame * frameWidth;
-                            const sy = animationRow * frameHeight;
-                            ctx.drawImage(sprite.asset, sx, sy, frameWidth, frameHeight, x, y, width, height);
+                        if (imageInfo && imageInfo.isSpriteSheet) {
+                            let currentFrameToDraw = 0;
+                            if (unit && (unit.isPlayer || enemyUnits.includes(unit))) {
+                                currentFrameToDraw = unit.currentFrame;
+                            } else if (key === localStorage.getItem('custom_sprite_player_id') || key === this.defaultPlayerDataId) {
+                                currentFrameToDraw = playerSpriteConfig.currentFrame;
+                            }
+                            const sx = currentFrameToDraw * imageInfo.frameWidth;
+                            const sy = imageInfo.animationRow * imageInfo.frameHeight;
+                            ctx.drawImage(sprite.asset, sx, sy, imageInfo.frameWidth, imageInfo.frameHeight, x, y, width, height);
                         } else {
                             ctx.drawImage(sprite.asset, x, y, width, height);
                         }
                     } else {
-                        ctx.fillStyle = '#FF00FF'; // Magenta placeholder for missing/unloaded sprite
+                        ctx.fillStyle = '#FF00FF';
                         ctx.fillRect(x, y, width, height);
                     }
                 }
@@ -1488,15 +1441,16 @@
             window.addEventListener('keydown', e => keys[e.key] = true); window.addEventListener('keyup', e => keys[e.key] = false);
             function setupDPadListeners() { const dPadButtons = { 'd-pad-up': 'ArrowUp', 'd-pad-down': 'ArrowDown', 'd-pad-left': 'ArrowLeft', 'd-pad-right': 'ArrowRight', }; for (const [buttonId, key] of Object.entries(dPadButtons)) { const button = document.getElementById(buttonId); if(!button) continue; button.addEventListener('mousedown', (e) => { e.preventDefault(); keys[key] = true; }); button.addEventListener('mouseup', (e) => { e.preventDefault(); keys[key] = false; }); button.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[key] = false; }); button.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; }, { passive: false }); button.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; }, { passive: false }); } }
             const map = { layout: [], colors: { 0: '#A0522D', 1: '#228B22', 2: '#0000CD' }, generate() { let grid, waterPercentage; do { grid = Array.from({ length: MAP_HEIGHT_TILES }, () => Array.from({ length: MAP_WIDTH_TILES }, () => Math.random() < 0.45 ? 2 : 0)); for (let i = 0; i < 4; i++) { let newGrid = JSON.parse(JSON.stringify(grid)); for (let y = 1; y < MAP_HEIGHT_TILES - 1; y++) { for (let x = 1; x < MAP_WIDTH_TILES - 1; x++) { let waterNeighbors = 0; for (let ny = y - 1; ny <= y + 1; ny++) for (let nx = x - 1; nx <= x + 1; nx++) if (grid[ny][nx] === 2) waterNeighbors++; if (waterNeighbors > 4) newGrid[y][x] = 2; else if (waterNeighbors < 4) newGrid[y][x] = 0; } } grid = newGrid; } const visited = Array.from({ length: MAP_HEIGHT_TILES }, () => Array(MAP_WIDTH_TILES).fill(false)); const startNode = {x: 1, y: 1}; if (grid[startNode.y][startNode.x] === 2) grid[startNode.y][startNode.x] = 0; const queue = [startNode]; visited[startNode.y][startNode.x] = true; let head = 0; while (head < queue.length) { const {x, y} = queue[head++]; const neighbors = [{x:x+1,y:y},{x:x-1,y:y},{x:x,y:y+1},{x:x,y:y-1}]; for (const n of neighbors) { if (n.x >= 0 && n.x < MAP_WIDTH_TILES && n.y >= 0 && n.y < MAP_HEIGHT_TILES && !visited[n.y][n.x] && grid[n.y][n.x] !== 2) { visited[n.y][n.x] = true; queue.push(n); } } } for(let y=0; y<MAP_HEIGHT_TILES; y++) for(let x=0; x<MAP_WIDTH_TILES; x++) if(!visited[y][x]) grid[y][x] = 2; for(let y=0; y<MAP_HEIGHT_TILES; y++) for(let x=0; x<MAP_WIDTH_TILES; x++) if(x===0||x===MAP_WIDTH_TILES-1||y===0||y===MAP_HEIGHT_TILES-1) if(grid[y][x]===2)grid[y][x]=0; let waterCount = grid.flat().filter(tile => tile === 2).length; waterPercentage = waterCount / (MAP_WIDTH_TILES * MAP_HEIGHT_TILES); } while (waterPercentage > 0.5); for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++) if (grid[y][x] === 0 && Math.random() > 0.6) grid[y][x] = 1; this.layout = grid; }, draw() { for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++) { ctx.fillStyle = this.colors[this.layout[y][x]]; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE); } }, isSolid: (x, y) => map.layout[y][x] === 2, isEncounterZone: (x, y) => map.layout[y][x] === 1 };
-            const player = { x: 10, y: 10, moveCooldown: 120, lastMoveTime: 0,
-                // MODIFIED draw for player
-                draw() {
-                    const spriteSize = TILE_SIZE; // Player is TILE_SIZE x TILE_SIZE in world map
-                    const playerSpriteId = localStorage.getItem('custom_sprite_player_id') || spriteManager.defaultPlayerDataId;
-                    spriteManager.draw(playerSpriteId, this.x * spriteSize, this.y * spriteSize, spriteSize, spriteSize);
-                },
-                handleMovement() { if (document.querySelector('.modal[style*="flex"]')) return; if(Date.now()-this.lastMoveTime<this.moveCooldown)return; let dx=0,dy=0; if(keys['ArrowUp']||keys['w'])dy=-1;else if(keys['ArrowDown']||keys['s'])dy=1;else if(keys['ArrowLeft']||keys['a'])dx=-1;else if(keys['ArrowRight']||keys['d'])dx=1; if(dx===0&&dy===0)return; this.lastMoveTime=Date.now(); const newX=this.x+dx,newY=this.y+dy; if(newX<0||newX>=MAP_WIDTH_TILES||newY<0||newY>=MAP_HEIGHT_TILES){map.generate();this.x=10;this.y=10;return;} if(!map.isSolid(newX, newY)){this.x=newX;this.y=newY;if(map.isEncounterZone(this.x,this.y))checkRandomEncounter();} } };
-            class Unit { constructor(name, baseName, hp, maxHp, atk, level=null, mp=null, maxMp=null, specialSkill = null, spriteId = null) { this.name = name; this.baseName = baseName; this.hp = hp; this.maxHp = maxHp; this.atk = atk; this.level = level; this.mp = mp; this.maxMp = maxMp; this.specialSkill = specialSkill; this.isPlayer = (level !== null); this.spriteId = spriteId || baseName; } attack(target) { const damage = Math.floor(this.atk * (0.8 + Math.random() * 0.4)); target.hp = Math.max(0, target.hp - damage); return `${this.name} tấn công ${target.name}, gây ${damage} sát thương!`; } }
+            const player = { x: 10, y: 10, moveCooldown: 120, lastMoveTime: 0, draw() { const spriteSize = TILE_SIZE; const playerSpriteId = localStorage.getItem('custom_sprite_player_id') || spriteManager.defaultPlayerDataId; spriteManager.draw(playerSpriteId, this.x * spriteSize, this.y * spriteSize, spriteSize, spriteSize, playerUnit); }, handleMovement() { if (document.querySelector('.modal[style*="flex"]')) return; if(Date.now()-this.lastMoveTime<this.moveCooldown)return; let dx=0,dy=0; if(keys['ArrowUp']||keys['w'])dy=-1;else if(keys['ArrowDown']||keys['s'])dy=1;else if(keys['ArrowLeft']||keys['a'])dx=-1;else if(keys['ArrowRight']||keys['d'])dx=1; if(dx===0&&dy===0)return; this.lastMoveTime=Date.now(); const newX=this.x+dx,newY=this.y+dy; if(newX<0||newX>=MAP_WIDTH_TILES||newY<0||newY>=MAP_HEIGHT_TILES){map.generate();this.x=10;this.y=10;return;} if(!map.isSolid(newX, newY)){this.x=newX;this.y=newY;if(map.isEncounterZone(this.x,this.y))checkRandomEncounter();} } };
+            class Unit {
+                constructor(name, baseName, hp, maxHp, atk, level=null, mp=null, maxMp=null, specialSkill = null, spriteId = null) {
+                    this.name = name; this.baseName = baseName; this.hp = hp; this.maxHp = maxHp; this.atk = atk;
+                    this.level = level; this.mp = mp; this.maxMp = maxMp; this.specialSkill = specialSkill;
+                    this.isPlayer = (level !== null); this.spriteId = spriteId || baseName;
+                    this.currentFrame = 0; this.lastFrameTime = 0;
+                }
+                attack(target) { const damage = Math.floor(this.atk * (0.8 + Math.random() * 0.4)); target.hp = Math.max(0, target.hp - damage); return `${this.name} tấn công ${target.name}, gây ${damage} sát thương!`; }
+            }
             const menuManager = { currentMenu: 'main', lastInputTime: 0, menus: { main: { el: ui.battleMenu, selectedIndex: 0 }, magic: { el: ui.magicMenu, selectedIndex: 0 } }, init() { const mainOptions = this.menus.main.el.querySelectorAll('li'); mainOptions.forEach((li, index) => { li.addEventListener('click', (e) => { e.stopPropagation(); if (battleState === 'processing' || this.currentMenu !== 'main') return; this.menus.main.selectedIndex = index; this.select(); }); li.addEventListener('mouseenter', () => { if (battleState === 'playerTurn') this.menus.main.selectedIndex = index; }); }); }, update() { if (Date.now() - this.lastInputTime < 150) return; const menu = this.menus[this.currentMenu]; const options = menu.el.querySelectorAll('li'); if (options.length === 0) return; let actionTaken = false; if (keys['ArrowUp']) { menu.selectedIndex = (menu.selectedIndex - 1 + options.length) % options.length; actionTaken = true; } else if (keys['ArrowDown']) { menu.selectedIndex = (menu.selectedIndex + 1) % options.length; actionTaken = true; } else if (keys['Enter'] || keys[' ']) { this.select(); actionTaken = true; } if (actionTaken) this.lastInputTime = Date.now(); }, draw() { for (const menuKey in this.menus) { const menu = this.menus[menuKey]; const options = menu.el.querySelectorAll('li'); options.forEach((li, i) => li.classList.toggle('selected', i === menu.selectedIndex)); } }, select() { const menu = this.menus[this.currentMenu]; const selectedOption = menu.el.querySelectorAll('li')[menu.selectedIndex]; if (this.currentMenu === 'main') { const action = selectedOption.dataset.action; if (action === 'attack') { pendingPlayerAction = { type: 'attack' }; battleState = 'playerTargeting'; } else if (action === 'magic') { this.switchMenu('magic'); battleState = 'playerChoosingSpell'; } else if (action === 'flee') { battleState = 'processing'; updateInfoPanel(''); showMessage("Bạn đã bỏ chạy thành công!", () => {endBattle(); gameState='world';}); } } else if (this.currentMenu === 'magic') { const spellId = selectedOption.dataset.spell; if (spellId === 'back') { this.switchMenu('main'); battleState = 'playerTurn'; } else { pendingPlayerAction = { type: 'spell', spellId: spellId }; battleState = 'playerTargeting'; this.switchMenu('main'); } } }, castSpell(spellId, target) { updateInfoPanel(''); const spell = spellManager.spells.find(s => s.id === spellId); if (!spell) { console.error(`Spell ${spellId} not found!`); advanceTurn(); return; } if (playerUnit.mp < spell.mpCost) { showMessage("Không đủ MP!", () => { battleState = 'playerTurn'; }); return; } playerUnit.mp -= spell.mpCost; target.hp = Math.max(0, target.hp - spell.damage); const onAnimationComplete = () => { const msg = `Dùng ${spell.name} lên ${target.name}, gây ${spell.damage} sát thương!`; showMessage(msg, () => { checkBattleEnd(); if (gameState === 'battle') advanceTurn(); }); }; playSpellAnimation(spell, target, onAnimationComplete); }, switchMenu(menuKey) { this.menus[this.currentMenu].el.style.display = 'none'; this.currentMenu = menuKey; this.menus[this.currentMenu].el.style.display = 'block'; this.menus[this.currentMenu].selectedIndex = 0; }, getCurrentDescription() { const menu = this.menus[this.currentMenu]; const selectedOption = menu.el.querySelectorAll('li')[menu.selectedIndex]; return selectedOption ? selectedOption.dataset.description : ''; }, populateMagicMenu() { ui.magicMenuList.innerHTML = ''; spellManager.spells.forEach(spell => { const li = document.createElement('li'); li.dataset.spell = spell.id; li.dataset.description = `Gây ${spell.damage} sát thương ${spell.mpCost} MP).`; li.textContent = `${spell.name} (${spell.mpCost} MP)`; ui.magicMenuList.appendChild(li); }); const backLi = document.createElement('li'); backLi.dataset.spell = 'back'; backLi.dataset.description = 'Quay lại menu chính.'; backLi.textContent = 'Quay lại'; ui.magicMenuList.appendChild(backLi); const magicOptions = this.menus.magic.el.querySelectorAll('li'); magicOptions.forEach((li, index) => { li.addEventListener('click', (e) => { e.stopPropagation(); if (battleState === 'processing' || this.currentMenu !== 'magic') return; this.menus.magic.selectedIndex = index; this.select(); }); li.addEventListener('mouseenter', () => { if (battleState === 'playerChoosingSpell') this.menus.magic.selectedIndex = index; }); }); } };
             function updateInfoPanel(text) { if (text && gameState === 'battle') { ui.infoPanel.innerHTML = text; ui.infoPanel.style.display = 'block'; } else { ui.infoPanel.style.display = 'none'; } }
             function startBattle() { if(monsterManager.monsters.length===0) { alert("Không có quái vật nào! Thêm trong mục Quản Lý."); return; } gameState='battle'; const pStats = playerDataManager.stats;
@@ -1505,103 +1459,145 @@
             enemyUnits = []; turnOrder = []; const enemyCount = Math.floor(Math.random() * 2) + 1; const nameCounter = {}; for (let i = 0; i < enemyCount; i++) { const randomEnemyData = {...monsterManager.monsters[Math.floor(Math.random()*monsterManager.monsters.length)]}; if (!nameCounter[randomEnemyData.name]) nameCounter[randomEnemyData.name] = 0; nameCounter[randomEnemyData.name]++; const displayName = (enemyCount > 1 || Object.keys(nameCounter).length > 1) ? `${randomEnemyData.name} ${String.fromCharCode(65 + i)}` : randomEnemyData.name; const baseName = randomEnemyData.name; const scaledHp = randomEnemyData.hp + (pStats.level * 3 + 20); const newEnemy = new Unit(displayName, baseName, scaledHp, scaledHp, randomEnemyData.atk, null, null, null, randomEnemyData.specialSkill, randomEnemyData.spriteId); enemyUnits.push(newEnemy); } turnOrder = [playerUnit, ...enemyUnits]; currentTurnIndex = 0; selectedTargetIndex = 0; menuManager.populateMagicMenu(); menuManager.switchMenu('main'); ui.playerStatsPanel.style.display='block'; ui.enemyStatsPanel.style.display='block'; const enemyNames = enemyUnits.map(e => e.name).join(', '); showMessage(`Một nhóm ${enemyNames} xuất hiện!`, () => { advanceTurn(); }); updateStatsUI(); }
             function endBattle() { gameState='world'; updateInfoPanel(''); ui.battleMenu.style.display='none';ui.magicMenu.style.display='none';ui.playerStatsPanel.style.display='none';ui.enemyStatsPanel.style.display='none';ui.messageBox.style.display='none'; canvas.classList.remove('targeting'); }
             function checkRandomEncounter() { if(Math.random()<0.15) { const tileType = map.layout[player.y][player.x]; battleBackgroundColor = map.colors[tileType]; startBattle(); } }
-            function drawBattleScene() { ctx.fillStyle = battleBackgroundColor; ctx.fillRect(0,0,canvas.width,canvas.height); const battleSpriteSize = TILE_SIZE * 4; spriteManager.draw(playerUnit.spriteId, 100, canvas.height - battleSpriteSize - 80, battleSpriteSize, battleSpriteSize); const enemyStartX = canvas.width - 150 - battleSpriteSize; const enemyStartY = 100; const enemySpacingY = 80; enemyUnits.forEach((enemy, index) => { const x = enemyStartX; const y = enemyStartY + index * enemySpacingY; spriteManager.draw(enemy.spriteId, x, y, battleSpriteSize, battleSpriteSize); }); if (currentAnimation && currentAnimation.type === 'spell') { if (currentAnimation.flashOn) { spriteManager.draw(currentAnimation.spriteId, currentAnimation.x, currentAnimation.y, currentAnimation.size, currentAnimation.size); } } }
+            function drawBattleScene() {
+                ctx.fillStyle = battleBackgroundColor; ctx.fillRect(0,0,canvas.width,canvas.height); const battleSpriteSize = TILE_SIZE * 4;
+                spriteManager.draw(playerUnit.spriteId, 100, canvas.height - battleSpriteSize - 80, battleSpriteSize, battleSpriteSize, playerUnit);
+                const enemyStartX = canvas.width - 150 - battleSpriteSize; const enemyStartY = 100; const enemySpacingY = 80;
+                enemyUnits.forEach((enemy, index) => { spriteManager.draw(enemy.spriteId, enemyStartX, enemyStartY + index * enemySpacingY, battleSpriteSize, battleSpriteSize, enemy); });
+                if (currentAnimation && currentAnimation.type === 'spell' && currentAnimation.flashOn) {
+                    spriteManager.draw(currentAnimation.spriteId, currentAnimation.x, currentAnimation.y, currentAnimation.size, currentAnimation.size);
+                }
+            }
             function playSpellAnimation(spell, target, onComplete) {
                 const hasSprite = spell.spriteId && spell.spriteFlashes > 0;
                 const hasScreenFlash = spell.flashes > 0;
-                const executeScreenFlash = () => {
-                    if (hasScreenFlash) {
-                        playScreenFlash(spell.effectColor, spell.flashes, onComplete);
-                    } else {
-                        onComplete();
-                    }
-                };
-
+                const executeScreenFlash = () => { if (hasScreenFlash) { playScreenFlash(spell.effectColor, spell.flashes, onComplete); } else { onComplete(); } };
                 if (hasSprite) {
-                    const battleSpriteSize = TILE_SIZE * 4;
-                    const targetIndex = enemyUnits.indexOf(target);
-                    const enemyStartX = canvas.width - 150 - battleSpriteSize;
-                    const enemyStartY = 100;
-                    const enemySpacingY = 80;
-                    const targetX = enemyStartX;
-                    const targetY = enemyStartY + targetIndex * enemySpacingY;
-
-                    currentAnimation = {
-                        type: 'spell',
-                        spriteId: spell.spriteId, // Use spriteId here
-                        x: targetX,
-                        y: targetY,
-                        size: battleSpriteSize,
-                        flashOn: true,
-                        flashesLeft: spell.spriteFlashes * 2,
-                        interval: 120
-                    };
-
+                    const battleSpriteSize = TILE_SIZE * 4; const targetIndex = enemyUnits.indexOf(target);
+                    const enemyStartX = canvas.width - 150 - battleSpriteSize; const enemyStartY = 100; const enemySpacingY = 80;
+                    currentAnimation = { type: 'spell', spriteId: spell.spriteId, x: enemyStartX, y: enemyStartY + targetIndex * enemySpacingY, size: battleSpriteSize, flashOn: true, flashesLeft: spell.spriteFlashes * 2, interval: 120 };
                     const animInterval = setInterval(() => {
-                        currentAnimation.flashesLeft--;
-                        currentAnimation.flashOn = !currentAnimation.flashOn;
-                        if (currentAnimation.flashesLeft <= 0) {
-                            clearInterval(animInterval);
-                            currentAnimation = null;
-                            executeScreenFlash();
-                        }
+                        currentAnimation.flashesLeft--; currentAnimation.flashOn = !currentAnimation.flashOn;
+                        if (currentAnimation.flashesLeft <= 0) { clearInterval(animInterval); currentAnimation = null; executeScreenFlash(); }
                     }, currentAnimation.interval);
-                } else {
-                    executeScreenFlash();
-                }
+                } else { executeScreenFlash(); }
             }
             function playScreenFlash(color, times, onComplete) { if (times <= 0) { onComplete(); return; } const originalColor = battleBackgroundColor; let flashes = 0; const interval = setInterval(() => { battleBackgroundColor = flashes % 2 === 0 ? color : originalColor; flashes++; if (flashes >= times * 2) { clearInterval(interval); battleBackgroundColor = originalColor; onComplete(); } }, 100); }
             function updateStatsUI() { if(!playerUnit) return; const createPlayerHtml = u => `Anh Hùng-Cấp ${u.level}<br>HP: ${u.hp}/${u.maxHp}<div class="hp-bar-container"><div class="hp-bar" style="width:${(u.hp/u.maxHp*100)}%"></div></div>MP: ${u.mp}/${u.maxMp}<div class="hp-bar-container"><div class="mp-bar" style="width:${(u.mp > 0 ? u.mp/u.maxMp*100 : 0)}%"></div></div>ATK: ${u.atk}`; let enemyHtml = ''; enemyUnits.forEach((u, index) => { enemyHtml += `<div>${selectedTargetIndex === index && battleState === 'playerTargeting' ? '▶ ' : ''}${u.name}<div class="hp-bar-container"><div class="hp-bar" style="width:${u.hp/u.maxHp*100}%"></div></div></div>`; }); ui.playerStatsPanel.innerHTML = createPlayerHtml(playerUnit); ui.enemyStatsPanel.innerHTML = enemyHtml; }
             function showMessage(text, callback) { gameState = 'message'; ui.messageBox.style.display = 'block'; ui.messageText.textContent = ''; ui.nextIndicator.style.display = 'none'; let i = 0, typingInterval = null, isTyping = true, continueListener = null, clickListener = null; const proceed = () => { window.removeEventListener('keydown', continueListener); ui.messageBox.removeEventListener('click', clickListener); ui.nextIndicator.style.display = 'none'; ui.messageBox.style.display = 'none'; if (gameState === 'message') { gameState = 'battle'; } if (callback) { callback(); } }; const finishTyping = () => { if (!isTyping) return; isTyping = false; clearInterval(typingInterval); ui.messageText.textContent = text; ui.nextIndicator.style.display = 'block'; }; const handleInput = (e) => { if (e) e.stopPropagation(); if (isTyping) { finishTyping(); } else { proceed(); } }; continueListener = (e) => { if (e.key === 'Enter' || e.key === ' ') handleInput(); }; clickListener = (e) => handleInput(e); window.addEventListener('keydown', continueListener); ui.messageBox.addEventListener('click', clickListener); typingInterval = setInterval(() => { if (i < text.length) { ui.messageText.textContent += text.charAt(i++); } else { finishTyping(); } }, 30); }
             function handleLevelUp(callback) { playerDataManager.levelUp(); const pStats = playerDataManager.stats; const levelUpMessage = `LEVEL UP! Cấp ${pStats.level}!\nATK+5! HP:${pStats.maxHp} MP:${pStats.maxMp}\nCần ${pStats.battlesToNextLevel} trận để lên cấp.`; showMessage(levelUpMessage, callback); }
             function update() {
-                // Update player sprite animation frame
-                const playerSpriteInfo = imageManager.getImageById(localStorage.getItem('custom_sprite_player_id') || spriteManager.defaultPlayerDataId);
-                if (playerSpriteInfo && playerSpriteInfo.isSpriteSheet && Date.now() - playerSpriteConfig.lastFrameTime > playerSpriteConfig.animationSpeed) {
-                    playerSpriteConfig.currentFrame = (playerSpriteConfig.currentFrame + 1) % playerSpriteConfig.framesPerRow;
-                    playerSpriteConfig.lastFrameTime = Date.now();
-                }
-
-                // Update animation frames for other sprite sheets if needed (e.g., enemy attacks)
-                // This would require a more complex animation system for each sprite that's a sheet.
-                // For simplicity, we are only animating the player sprite sheet here.
-
+                turnOrder.forEach(unit => {
+                    if (unit && unit.spriteId) {
+                        const unitSpriteInfo = imageManager.getImageById(unit.spriteId);
+                        if (unitSpriteInfo && unitSpriteInfo.isSpriteSheet) {
+                            if (Date.now() - unit.lastFrameTime > unitSpriteInfo.animationSpeed) {
+                                unit.currentFrame = (unit.currentFrame + 1) % unitSpriteInfo.framesPerRow;
+                                unit.lastFrameTime = Date.now();
+                            }
+                        }
+                    }
+                });
                 if(gameState==='world') player.handleMovement();
                 else if(gameState==='battle') handleBattleLogic();
             }
-            function draw() { ctx.clearRect(0,0,canvas.width,canvas.height); if(gameState==='world'){ updateInfoPanel(''); map.draw(); player.draw(); ui.targetSelector.style.display = 'none'; } else { drawBattleScene(); if (battleState === 'playerTurn' || battleState === 'playerChoosingSpell') { menuManager.draw(); } if (battleState === 'playerTargeting') { updateInfoPanel('Chọn mục tiêu...'); if (enemyUnits.length > 0) { const battleSpriteSize = TILE_SIZE * 4; const enemyStartX = canvas.width - 150 - battleSpriteSize; const enemyStartY = 100; const enemySpacingY = 80; const selectorX = enemyStartX + (battleSpriteSize / 2) - (ui.targetSelector.offsetWidth / 2); const selectorY = enemyStartY + selectedTargetIndex * enemySpacingY - ui.targetSelector.offsetHeight; ui.targetSelector.style.left = `${selectorX}px`; ui.targetSelector.style.top = `${selectorY}px`; ui.targetSelector.style.display = 'block'; } } else { ui.targetSelector.style.display = 'none'; } } }
+            function draw() {
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                if(gameState==='world'){
+                    updateInfoPanel('');
+                    map.draw();
+                    player.draw();
+                    ui.targetSelector.style.display = 'none';
+                    newMapBtn.style.display = 'block'; // NEW: Show map button
+                } else {
+                    drawBattleScene();
+                    newMapBtn.style.display = 'none'; // NEW: Hide map button
+                    if (battleState === 'playerTurn' || battleState === 'playerChoosingSpell') {
+                        menuManager.draw();
+                    }
+                    if (battleState === 'playerTargeting') {
+                        updateInfoPanel('Chọn mục tiêu...');
+                        if (enemyUnits.length > 0) {
+                            const battleSpriteSize = TILE_SIZE * 4;
+                            const enemyStartX = canvas.width - 150 - battleSpriteSize;
+                            const enemyStartY = 100;
+                            const enemySpacingY = 80;
+                            const selectorX = enemyStartX + (battleSpriteSize / 2) - (ui.targetSelector.offsetWidth / 2);
+                            const selectorY = enemyStartY + selectedTargetIndex * enemySpacingY - ui.targetSelector.offsetHeight;
+                            ui.targetSelector.style.left = `${selectorX}px`;
+                            ui.targetSelector.style.top = `${selectorY}px`;
+                            ui.targetSelector.style.display = 'block';
+                        }
+                    } else {
+                        ui.targetSelector.style.display = 'none';
+                    }
+                }
+            }
             function handleBattleLogic() { if (battleState === 'processing' || currentAnimation) return; const currentUnit = turnOrder[currentTurnIndex]; if (currentUnit && currentUnit.isPlayer) { if (battleState === 'playerTurn' || battleState === 'playerChoosingSpell') { menuManager.update(); updateInfoPanel(menuManager.getCurrentDescription()); } else if (battleState === 'playerTargeting') { handleTargeting(); canvas.classList.add('targeting'); } } else { canvas.classList.remove('targeting'); } }
             canvas.addEventListener('click', (event) => { if (battleState !== 'playerTargeting') return; const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height; const x = (event.clientX - rect.left) * scaleX; const y = (event.clientY - rect.top) * scaleY; const battleSpriteSize = TILE_SIZE * 4; const enemyStartX = canvas.width - 150 - battleSpriteSize; const enemyStartY = 100; const enemySpacingY = 80; enemyUnits.forEach((enemy, index) => { const ex = enemyStartX; const ey = enemyStartY + index * enemySpacingY; if (x > ex && x < ex + battleSpriteSize && y > ey && y < ey + battleSpriteSize) { selectedTargetIndex = index; updateStatsUI(); executePlayerAction(); } }); });
             function handleTargeting() { if (Date.now() - menuManager.lastInputTime < 150) return; let actionTaken = false; if (keys['ArrowUp']) { selectedTargetIndex = (selectedTargetIndex - 1 + enemyUnits.length) % enemyUnits.length; actionTaken = true; } else if (keys['ArrowDown']) { selectedTargetIndex = (selectedTargetIndex + 1) % enemyUnits.length; actionTaken = true; } else if (keys['Enter'] || keys[' ']) { executePlayerAction(); actionTaken = true; } else if (keys['Escape'] || keys['Backspace']) { battleState = 'playerTurn'; pendingPlayerAction = null; updateInfoPanel(''); actionTaken = true; } if(actionTaken) { menuManager.lastInputTime = Date.now(); updateStatsUI(); } }
             function executePlayerAction() { battleState = 'processing'; updateInfoPanel(''); ui.targetSelector.style.display = 'none'; canvas.classList.remove('targeting'); const target = enemyUnits[selectedTargetIndex]; if (!target) { advanceTurn(); return; } if (pendingPlayerAction.type === 'attack') { const msg = playerUnit.attack(target); showMessage(msg, () => { checkBattleEnd(); if (gameState === 'battle') advanceTurn(); }); } else if (pendingPlayerAction.type === 'spell') { menuManager.castSpell(pendingPlayerAction.spellId, target); } pendingPlayerAction = null; }
             function advanceTurn() { updateStatsUI(); turnOrder = turnOrder.filter(unit => unit.hp > 0); if (checkBattleEnd()) return; currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length; const nextUnit = turnOrder[currentTurnIndex]; if (!nextUnit) { console.error("Không tìm thấy đơn vị tiếp theo!"); endBattle(); return; } if (nextUnit.isPlayer) { battleState = 'playerTurn'; menuManager.switchMenu('main'); updateInfoPanel(menuManager.getCurrentDescription()); } else { battleState = 'processing'; updateInfoPanel(`Lượt của ${nextUnit.name}...`); setTimeout(() => executeEnemyTurn(nextUnit), 1200); } }
             function executeEnemyTurn(enemy) { updateInfoPanel(`Lượt của ${enemy.name}...`); if (enemy.specialSkill && Math.random() < enemy.specialSkill.chance) { const skill = enemy.specialSkill; playerUnit.hp = Math.max(0, playerUnit.hp - skill.damage); const msg = `${enemy.name} dùng ${skill.name}! Anh Hùng nhận ${skill.damage} sát thương!`; playScreenFlash('orange', 2, () => { showMessage(msg, () => { checkBattleEnd(); if(gameState === 'battle') advanceTurn(); }); }); } else { const msg = enemy.attack(playerUnit); showMessage(msg, () => { checkBattleEnd(); if(gameState === 'battle') advanceTurn(); }); } }
-            function checkBattleEnd() { const wasInBattle = enemyUnits.length > 0; const defeatedForTurn = turnOrder.filter(u => !u.isPlayer && u.hp <= 0); enemyUnits = enemyUnits.filter(e => e.hp > 0); updateStatsUI(); if (playerUnit.hp <= 0) { battleState = 'processing'; gameState = 'gameOver'; updateInfoPanel('BẠN ĐÃ THUA!'); ui.gameOverScreen.style.display = 'flex'; return true; } if (wasInBattle && enemyUnits.length === 0) { battleState = 'processing'; updateInfoPanel('CHIẾN THẮNG!'); const droppedItems = []; turnOrder.filter(u => !u.isPlayer).forEach(defeatedUnit => { const baseMonster = monsterManager.monsters.find(m => m.id === defeatedUnit.baseName); if (baseMonster && baseMonster.dropItem && baseMonster.dropItem.name && Math.random() < baseMonster.dropItem.dropRate) { inventoryManager.addItem(baseMonster.dropItem.name, 1); droppedItems.push(baseMonster.dropItem.name); } }); const handlePostBattle = () => { playerDataManager.stats.battlesWon++; playerDataManager.save(); const willLevelUp = playerDataManager.stats.battlesWon >= playerDataManager.stats.battlesToNextLevel; if (willLevelUp) { handleLevelUp(endBattle); } else { endBattle(); } }; showMessage(`Bạn đã chiến thắng!`, () => { if (droppedItems.length > 0) { showMessage(`Bạn nhận được: ${droppedItems.join(', ')}!`, handlePostBattle); } else { handlePostBattle(); } }); return true; } return false; }
+            function checkBattleEnd() { const wasInBattle = enemyUnits.length > 0; enemyUnits = enemyUnits.filter(e => e.hp > 0); updateStatsUI(); if (playerUnit.hp <= 0) { battleState = 'processing'; gameState = 'gameOver'; updateInfoPanel('BẠN ĐÃ THUA!'); ui.gameOverScreen.style.display = 'flex'; return true; } if (wasInBattle && enemyUnits.length === 0) { battleState = 'processing'; updateInfoPanel('CHIẾN THẮNG!'); const droppedItems = []; turnOrder.filter(u => !u.isPlayer).forEach(defeatedUnit => { const baseMonster = monsterManager.monsters.find(m => m.id === defeatedUnit.baseName); if (baseMonster && baseMonster.dropItem && baseMonster.dropItem.name && Math.random() < baseMonster.dropItem.dropRate) { inventoryManager.addItem(baseMonster.dropItem.name, 1); droppedItems.push(baseMonster.dropItem.name); } }); const handlePostBattle = () => { playerDataManager.stats.battlesWon++; playerDataManager.save(); const willLevelUp = playerDataManager.stats.battlesWon >= playerDataManager.stats.battlesToNextLevel; if (willLevelUp) { handleLevelUp(endBattle); } else { endBattle(); } }; showMessage(`Bạn đã chiến thắng!`, () => { if (droppedItems.length > 0) { showMessage(`Bạn nhận được: ${droppedItems.join(', ')}!`, handlePostBattle); } else { handlePostBattle(); } }); return true; } return false; }
+            
+            // --- NEW FUNCTION: Reload all game data without page refresh ---
+            function reloadAllData() {
+                try {
+                    console.log('Reloading all game data...');
+                    playerDataManager.load();
+                    monsterManager.load();
+                    spellManager.load();
+                    inventoryManager.load();
+                    imageManager.load();
+
+                    // Refresh UI in any open management modals
+                    if (document.getElementById('customize-modal').style.display === 'flex') customizeModal.init();
+                    if (document.getElementById('monster-modal').style.display === 'flex') monsterModal.renderList();
+                    if (document.getElementById('spell-modal').style.display === 'flex') spellModal.renderList();
+                    if (document.getElementById('image-manager-modal').style.display === 'flex') imageManagerModal.renderList();
+
+                    // Reload all visual assets and update game UI
+                    spriteManager.loadAll(() => {
+                        menuManager.populateMagicMenu();
+                        if(playerUnit) { updateStatsUI(); } // Update battle UI if in a battle
+                        alert('Dữ liệu game đã được tải lại thành công!');
+                    });
+                } catch (error) {
+                    console.error("Error reloading data:", error);
+                    alert('Có lỗi xảy ra khi tải lại dữ liệu.');
+                }
+            }
+            
+            // --- NEW EVENT LISTENERS ---
+            reloadDataBtn.addEventListener('click', reloadAllData);
+            newMapBtn.addEventListener('click', () => {
+                if (gameState === 'world') {
+                    map.generate();
+                    player.x = 10; // Reset player to a safe position
+                    player.y = 10;
+                }
+            });
+
             function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
             map.generate();
             menuManager.init();
             setupDPadListeners();
 
-            // Load saved player config on startup
             const savedPlayerConfigOnLoad = localStorage.getItem('custom_sprite_player_config');
             if (savedPlayerConfigOnLoad) {
                 Object.assign(playerSpriteConfig, JSON.parse(savedPlayerConfigOnLoad));
-            } else { // If no saved config, use the default player sprite config from imageManager
+            } else {
                 const defaultPlayerSprite = imageManager.getImageById(spriteManager.defaultPlayerDataId);
                 if (defaultPlayerSprite) {
                     Object.assign(playerSpriteConfig, {
-                        isSpriteSheet: defaultPlayerSprite.isSpriteSheet,
-                        frameWidth: defaultPlayerSprite.frameWidth,
-                        frameHeight: defaultPlayerSprite.frameHeight,
-                        framesPerRow: defaultPlayerSprite.framesPerRow,
-                        animationRow: defaultPlayerSprite.animationRow,
-                        animationSpeed: defaultPlayerSprite.animationSpeed,
-                        totalRows: defaultPlayerSprite.totalRows
+                        isSpriteSheet: defaultPlayerSprite.isSpriteSheet, frameWidth: defaultPlayerSprite.frameWidth, frameHeight: defaultPlayerSprite.frameHeight,
+                        framesPerRow: defaultPlayerSprite.framesPerRow, animationRow: defaultPlayerSprite.animationRow,
+                        animationSpeed: defaultPlayerSprite.animationSpeed, totalRows: defaultPlayerSprite.totalRows
                     });
                 }
             }
-
 
             spriteManager.loadAll(() => {
                 if (!gameStarted) {
